@@ -1,0 +1,12 @@
+# Portfolio-optimization-lab default configuration.
+# All values can be overridden programmatically via OptConfig.
+tickers: [AAPL, MSFT, JNJ, JPM, XOM, PG, AMZN]
+benchmark: SPY
+start: "2018-01-01"
+rf_annual: 0.0          # risk-free assumption, disclosed in all outputs
+estimation_window: 252  # trading days
+holding_period: 63      # out-of-sample days per rebalance (~1 quarter)
+max_weight: 0.40        # per-asset cap
+cost_bps: 10            # per unit turnover at each rebalance
+frontier_points: 30
+seed: 42
