@@ -1,0 +1,5 @@
+strategy,oos_days,n_rebalances,ann_return,ann_volatility,sharpe,avg_turnover,total_costs_pct
+equal_weight,1890,30,0.187072,0.185924,1.00617,0.033333,0.1
+min_variance,1890,30,0.115795,0.166328,0.696186,0.218851,0.656552
+max_sharpe,1890,30,0.18878,0.215556,0.875782,0.616449,1.849348
+risk_parity,1890,30,0.169464,0.173893,0.974535,0.088771,0.266313

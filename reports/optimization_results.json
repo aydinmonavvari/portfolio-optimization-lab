@@ -1,0 +1,278 @@
+{
+  "generated_at": "2026-10-08T09:38:23.368633+00:00",
+  "project": "portfolio-optimization-lab",
+  "description": "Mean-variance and risk-parity optimization with shrinkage covariance and a leakage-free walk-forward evaluation (educational research project; not investment advice).",
+  "config": {
+    "tickers": [
+      "AAPL",
+      "MSFT",
+      "JNJ",
+      "JPM",
+      "XOM",
+      "PG",
+      "AMZN"
+    ],
+    "benchmark": "SPY",
+    "rf_annual": 0.0,
+    "periods_per_year": 252,
+    "estimation_window": 252,
+    "holding_period": 63,
+    "max_weight": 0.4,
+    "cost_bps": 10.0,
+    "frontier_points": 30,
+    "seed": 42,
+    "raw_dir": "data/raw",
+    "processed_dir": "data/processed",
+    "figures_dir": "figures",
+    "reports_dir": "reports"
+  },
+  "frontier": [
+    {
+      "target_return": 0.082727,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.088258,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.093789,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.09932,
+      "volatility": 0.160863
+    },
+    {
+      "target_return": 0.10485,
+      "volatility": 0.158723
+    },
+    {
+      "target_return": 0.110381,
+      "volatility": 0.158352
+    },
+    {
+      "target_return": 0.115912,
+      "volatility": 0.158779
+    },
+    {
+      "target_return": 0.121443,
+      "volatility": 0.159775
+    },
+    {
+      "target_return": 0.126974,
+      "volatility": 0.161297
+    },
+    {
+      "target_return": 0.132505,
+      "volatility": 0.16333
+    },
+    {
+      "target_return": 0.138036,
+      "volatility": 0.165854
+    },
+    {
+      "target_return": 0.143567,
+      "volatility": 0.168849
+    },
+    {
+      "target_return": 0.149098,
+      "volatility": 0.172289
+    },
+    {
+      "target_return": 0.154629,
+      "volatility": 0.176149
+    },
+    {
+      "target_return": 0.160159,
+      "volatility": 0.180403
+    },
+    {
+      "target_return": 0.16569,
+      "volatility": 0.185059
+    },
+    {
+      "target_return": 0.171221,
+      "volatility": 0.190105
+    },
+    {
+      "target_return": 0.176752,
+      "volatility": 0.19551
+    },
+    {
+      "target_return": 0.182283,
+      "volatility": 0.201244
+    },
+    {
+      "target_return": 0.187814,
+      "volatility": 0.207331
+    },
+    {
+      "target_return": 0.193345,
+      "volatility": 0.213836
+    },
+    {
+      "target_return": 0.198876,
+      "volatility": 0.220726
+    },
+    {
+      "target_return": 0.204407,
+      "volatility": 0.228131
+    },
+    {
+      "target_return": 0.209938,
+      "volatility": 0.236121
+    },
+    {
+      "target_return": 0.215468,
+      "volatility": 0.245536
+    },
+    {
+      "target_return": 0.220999,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.22653,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.232061,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.237592,
+      "volatility": NaN
+    },
+    {
+      "target_return": 0.243123,
+      "volatility": NaN
+    }
+  ],
+  "asset_stats": {
+    "AAPL": {
+      "return": 0.243123,
+      "volatility": 0.303657,
+      "sharpe": 0.800651
+    },
+    "MSFT": {
+      "return": 0.21843,
+      "volatility": 0.289994,
+      "sharpe": 0.753224
+    },
+    "JNJ": {
+      "return": 0.098185,
+      "volatility": 0.198071,
+      "sharpe": 0.495707
+    },
+    "JPM": {
+      "return": 0.154964,
+      "volatility": 0.284666,
+      "sharpe": 0.544372
+    },
+    "XOM": {
+      "return": 0.119361,
+      "volatility": 0.299565,
+      "sharpe": 0.398449
+    },
+    "PG": {
+      "return": 0.082727,
+      "volatility": 0.201545,
+      "sharpe": 0.410463
+    },
+    "AMZN": {
+      "return": 0.168827,
+      "volatility": 0.34265,
+      "sharpe": 0.49271
+    }
+  },
+  "portfolios": {
+    "equal weight": {
+      "return": 0.155088,
+      "volatility": 0.183799,
+      "sharpe": 0.843791
+    },
+    "min variance": {
+      "return": 0.110057,
+      "volatility": 0.15835,
+      "sharpe": 0.695022
+    },
+    "max sharpe": {
+      "return": 0.187649,
+      "volatility": 0.207181,
+      "sharpe": 0.905725
+    },
+    "risk parity": {
+      "return": 0.142979,
+      "volatility": 0.172135,
+      "sharpe": 0.83062
+    }
+  },
+  "performance": [
+    {
+      "strategy": "equal_weight",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.187072,
+      "ann_volatility": 0.185924,
+      "sharpe": 1.00617,
+      "avg_turnover": 0.033333,
+      "total_costs_pct": 0.1
+    },
+    {
+      "strategy": "min_variance",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.115795,
+      "ann_volatility": 0.166328,
+      "sharpe": 0.696186,
+      "avg_turnover": 0.218851,
+      "total_costs_pct": 0.656552
+    },
+    {
+      "strategy": "max_sharpe",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.18878,
+      "ann_volatility": 0.215556,
+      "sharpe": 0.875782,
+      "avg_turnover": 0.616449,
+      "total_costs_pct": 1.849348
+    },
+    {
+      "strategy": "risk_parity",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.169464,
+      "ann_volatility": 0.173893,
+      "sharpe": 0.974535,
+      "avg_turnover": 0.088771,
+      "total_costs_pct": 0.266313
+    }
+  ],
+  "comparison": [
+    {
+      "strategy": "equal_weight",
+      "in_sample_sharpe": 0.843791,
+      "oos_sharpe": 1.00617,
+      "sharpe_degradation": 0.162379
+    },
+    {
+      "strategy": "min_variance",
+      "in_sample_sharpe": 0.695022,
+      "oos_sharpe": 0.696186,
+      "sharpe_degradation": 0.001164
+    },
+    {
+      "strategy": "max_sharpe",
+      "in_sample_sharpe": 0.905725,
+      "oos_sharpe": 0.875782,
+      "sharpe_degradation": -0.029943
+    },
+    {
+      "strategy": "risk_parity",
+      "in_sample_sharpe": 0.83062,
+      "oos_sharpe": 0.974535,
+      "sharpe_degradation": 0.143915
+    }
+  ]
+}
