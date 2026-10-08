@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "portfolio-optimization-lab: mean-variance and risk-parity optimization with leakage-free walk-forward evaluation"
+authors:
+  - family-names: Monavvari
+    given-names: Aydin
+    email: 245710241+aydinmonavvari@users.noreply.github.com
+version: 1.0.0
+date-released: "2026-10-08"
+license: MIT
+repository-code: "https://github.com/aydinmonavvari/portfolio-optimization-lab"
+keywords:
+  - portfolio-optimization
+  - efficient-frontier
+  - risk-parity
+  - shrinkage
+  - quantitative-finance
+abstract: "Educational research project constructing minimum-variance, maximum-Sharpe and risk-parity portfolios under realistic constraints, comparing sample and Ledoit-Wolf shrunk covariance, and evaluating out-of-sample performance with a strictly chronological walk-forward design including transaction costs."
