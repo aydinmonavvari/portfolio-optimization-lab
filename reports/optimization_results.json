@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-08T09:38:23.368633+00:00",
+  "generated_at": "2026-10-08T21:11:37.040869+00:00",
   "project": "portfolio-optimization-lab",
-  "description": "Mean-variance and risk-parity optimization with shrinkage covariance and a leakage-free walk-forward evaluation (educational research project; not investment advice).",
+  "description": "Mean-variance and risk-parity optimization with shrinkage covariance and a leakage-free walk-forward evaluation, net of transaction costs (educational research project; not investment advice).",
   "config": {
     "tickers": [
       "AAPL",
@@ -29,15 +29,15 @@
   "frontier": [
     {
       "target_return": 0.082727,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.088258,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.093789,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.09932,
@@ -129,23 +129,23 @@
     },
     {
       "target_return": 0.220999,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.22653,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.232061,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.237592,
-      "volatility": NaN
+      "volatility": null
     },
     {
       "target_return": 0.243123,
-      "volatility": NaN
+      "volatility": null
     }
   ],
   "asset_stats": {
@@ -197,9 +197,9 @@
       "sharpe": 0.695022
     },
     "max sharpe": {
-      "return": 0.187649,
-      "volatility": 0.207181,
-      "sharpe": 0.905725
+      "return": 0.185286,
+      "volatility": 0.204496,
+      "sharpe": 0.906062
     },
     "risk parity": {
       "return": 0.142979,
@@ -207,14 +207,66 @@
       "sharpe": 0.83062
     }
   },
+  "weights_full_sample": {
+    "equal_weight": {
+      "AAPL": 0.142857,
+      "MSFT": 0.142857,
+      "JNJ": 0.142857,
+      "JPM": 0.142857,
+      "XOM": 0.142857,
+      "PG": 0.142857,
+      "AMZN": 0.142857
+    },
+    "min_variance": {
+      "AAPL": 0.0,
+      "MSFT": 0.042641,
+      "JNJ": 0.35509,
+      "JPM": 0.035969,
+      "XOM": 0.127925,
+      "PG": 0.336522,
+      "AMZN": 0.101852
+    },
+    "max_sharpe": {
+      "AAPL": 0.330667,
+      "MSFT": 0.275937,
+      "JNJ": 0.248552,
+      "JPM": 0.082226,
+      "XOM": 0.062618,
+      "PG": 0.0,
+      "AMZN": 0.0
+    },
+    "risk_parity": {
+      "AAPL": 0.109345,
+      "MSFT": 0.115883,
+      "JNJ": 0.200683,
+      "JPM": 0.123633,
+      "XOM": 0.14039,
+      "PG": 0.19611,
+      "AMZN": 0.113956
+    }
+  },
+  "shrinkage_intensity_full_sample": 0.015083,
+  "shrinkage_intensity_walk_forward": {
+    "mean": 0.072426,
+    "min": 0.031244,
+    "max": 0.158327,
+    "n_windows": 30
+  },
+  "solver_diagnostics": {
+    "min_variance_clip_renorm": 0,
+    "max_sharpe_closed_form": 0,
+    "max_sharpe_frontier_scan": 32
+  },
   "performance": [
     {
       "strategy": "equal_weight",
       "oos_days": 1890,
       "n_rebalances": 30,
-      "ann_return": 0.187072,
-      "ann_volatility": 0.185924,
-      "sharpe": 1.00617,
+      "ann_return": 0.186913,
+      "ann_volatility": 0.1859,
+      "sharpe": 1.00545,
+      "ann_return_gross": 0.187072,
+      "sharpe_gross": 1.00617,
       "avg_turnover": 0.033333,
       "total_costs_pct": 0.1
     },
@@ -222,9 +274,11 @@
       "strategy": "min_variance",
       "oos_days": 1890,
       "n_rebalances": 30,
-      "ann_return": 0.115795,
-      "ann_volatility": 0.166328,
-      "sharpe": 0.696186,
+      "ann_return": 0.114819,
+      "ann_volatility": 0.166272,
+      "sharpe": 0.690546,
+      "ann_return_gross": 0.115795,
+      "sharpe_gross": 0.696186,
       "avg_turnover": 0.218851,
       "total_costs_pct": 0.656552
     },
@@ -232,19 +286,23 @@
       "strategy": "max_sharpe",
       "oos_days": 1890,
       "n_rebalances": 30,
-      "ann_return": 0.18878,
-      "ann_volatility": 0.215556,
-      "sharpe": 0.875782,
-      "avg_turnover": 0.616449,
-      "total_costs_pct": 1.849348
+      "ann_return": 0.201161,
+      "ann_volatility": 0.210213,
+      "sharpe": 0.956938,
+      "ann_return_gross": 0.204139,
+      "sharpe_gross": 0.970736,
+      "avg_turnover": 0.619201,
+      "total_costs_pct": 1.857602
     },
     {
       "strategy": "risk_parity",
       "oos_days": 1890,
       "n_rebalances": 30,
-      "ann_return": 0.169464,
-      "ann_volatility": 0.173893,
-      "sharpe": 0.974535,
+      "ann_return": 0.169049,
+      "ann_volatility": 0.17386,
+      "sharpe": 0.972329,
+      "ann_return_gross": 0.169464,
+      "sharpe_gross": 0.974535,
       "avg_turnover": 0.088771,
       "total_costs_pct": 0.266313
     }
@@ -253,26 +311,148 @@
     {
       "strategy": "equal_weight",
       "in_sample_sharpe": 0.843791,
-      "oos_sharpe": 1.00617,
-      "sharpe_degradation": 0.162379
+      "oos_sharpe_net": 1.00545,
+      "oos_sharpe_gross": 1.00617,
+      "sharpe_degradation": 0.161659
     },
     {
       "strategy": "min_variance",
       "in_sample_sharpe": 0.695022,
-      "oos_sharpe": 0.696186,
-      "sharpe_degradation": 0.001164
+      "oos_sharpe_net": 0.690546,
+      "oos_sharpe_gross": 0.696186,
+      "sharpe_degradation": -0.004476
     },
     {
       "strategy": "max_sharpe",
-      "in_sample_sharpe": 0.905725,
-      "oos_sharpe": 0.875782,
-      "sharpe_degradation": -0.029943
+      "in_sample_sharpe": 0.906062,
+      "oos_sharpe_net": 0.956938,
+      "oos_sharpe_gross": 0.970736,
+      "sharpe_degradation": 0.050876
     },
     {
       "strategy": "risk_parity",
       "in_sample_sharpe": 0.83062,
-      "oos_sharpe": 0.974535,
-      "sharpe_degradation": 0.143915
+      "oos_sharpe_net": 0.972329,
+      "oos_sharpe_gross": 0.974535,
+      "sharpe_degradation": 0.141708
     }
-  ]
+  ],
+  "sharpe_diff_bootstrap": {
+    "B": 2000,
+    "block": 63,
+    "seed": 42,
+    "confidence_level": 0.95,
+    "statistic": "paired circular-block bootstrap of Sharpe(a) - Sharpe(b) on OOS daily net returns; Sharpe = sqrt(periods_per_year) * mean(r) / std(r, ddof=1); identical resampled indices for both legs",
+    "assumptions": "approximately stationary OOS return series; within-block dependence captures the serial correlation; conclusions read across the sensitivity block lengths",
+    "pairs": [
+      {
+        "a": "equal_weight",
+        "b": "min_variance",
+        "diff": 0.268067,
+        "ci_low": -0.057788,
+        "ci_high": 0.610028,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.085417,
+            "ci_high": 0.631585
+          },
+          "126": {
+            "ci_low": 0.017083,
+            "ci_high": 0.600843
+          }
+        }
+      },
+      {
+        "a": "equal_weight",
+        "b": "max_sharpe",
+        "diff": 0.049847,
+        "ci_low": -0.294372,
+        "ci_high": 0.497029,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.294977,
+            "ci_high": 0.443796
+          },
+          "126": {
+            "ci_low": -0.267474,
+            "ci_high": 0.51878
+          }
+        }
+      },
+      {
+        "a": "equal_weight",
+        "b": "risk_parity",
+        "diff": 0.023394,
+        "ci_low": -0.105006,
+        "ci_high": 0.132751,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.109834,
+            "ci_high": 0.14198
+          },
+          "126": {
+            "ci_low": -0.074524,
+            "ci_high": 0.115132
+          }
+        }
+      },
+      {
+        "a": "min_variance",
+        "b": "max_sharpe",
+        "diff": -0.21822,
+        "ci_low": -0.494795,
+        "ci_high": 0.079553,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.554781,
+            "ci_high": 0.145727
+          },
+          "126": {
+            "ci_low": -0.448729,
+            "ci_high": 0.054156
+          }
+        }
+      },
+      {
+        "a": "min_variance",
+        "b": "risk_parity",
+        "diff": -0.244672,
+        "ci_low": -0.498977,
+        "ci_high": -0.034048,
+        "significant_95": true,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.503093,
+            "ci_high": -0.01109
+          },
+          "126": {
+            "ci_low": -0.508704,
+            "ci_high": -0.071809
+          }
+        }
+      },
+      {
+        "a": "max_sharpe",
+        "b": "risk_parity",
+        "diff": -0.026453,
+        "ci_low": -0.426024,
+        "ci_high": 0.252741,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.379585,
+            "ci_high": 0.282403
+          },
+          "126": {
+            "ci_low": -0.457391,
+            "ci_high": 0.251557
+          }
+        }
+      }
+    ]
+  }
 }

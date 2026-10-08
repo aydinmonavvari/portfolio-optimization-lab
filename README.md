@@ -48,21 +48,34 @@ measures what the optimizers actually deliver.
    data and reported).
 2. **Portfolio construction** — all portfolios solved under long-only, full-investment
    (`Σw = 1`) and a 40% per-asset cap:
-   - *minimum variance*: quadratic program (SLSQP);
-   - *maximum Sharpe*: closed-form tangency `Σ⁻¹(μ−rf)` when constraint-inactive,
-     otherwise located on the constrained efficient frontier by dense scan + ternary
-     refinement (the fractional program is avoided deliberately — see §19);
+   - *minimum variance*: quadratic program (SLSQP), with a defensive
+     clip-and-renormalize safety net whose use is counted and reported;
+   - *maximum Sharpe*: closed-form tangency `Σ⁻¹(μ−rf)` accepted only when it is
+     already long-only and cap-feasible **without clipping**; otherwise located on
+     the constrained efficient frontier by a 25-point scan + ternary refinement
+     (a clipped candidate is never returned — it is suboptimal whenever clipping
+     changes the solution); the branch taken per solve is counted and reported;
    - *risk parity*: equal risk contributions via cyclical coordinate descent
      (Griveau-Billion, Richard & Roncalli 2013);
    - *equal weight*: the naive benchmark.
 3. **Efficient frontier** — minimum-variance portfolios across a target-return grid
-   under the same constraints.
+   under the same constraints (infeasible targets are reported as `null`).
 4. **Walk-forward backtest** — every `holding_period = 63` trading days, μ and Σ are
    re-estimated on the trailing 252 days only; weights are built and held for the next
    63 days. Estimation and evaluation windows are disjoint *by construction* (verified
    by a dedicated unit test that intercepts the estimator and asserts window
-   boundaries).
-5. **Costs** — 10 bps applied to one-way turnover at each rebalance.
+   boundaries). The trailing partial 63-day block (61 trading days here) is not used
+   out of sample.
+5. **Costs** — 10 bps applied to one-way turnover at each rebalance and **deducted
+   from that day's strategy return**; every headline metric (return, volatility,
+   Sharpe, drawdowns, cumulative growth) is therefore net of costs, with gross
+   metrics reported alongside for reference.
+6. **Uncertainty** — paired circular-block bootstrap (Politis & Romano 1994) 95%
+   percentile CIs for every pairwise Sharpe *difference* on OOS daily net returns:
+   B = 2000, block = 63 days (the holding period), seed 42, with block-length
+   sensitivity at 21 and 126 days. Blocks are used because daily OOS returns are
+   serially dependent (fixed 63-day weights, volatility clustering), which invalidates
+   an IID bootstrap.
 
 ## 6 · Dataset
 
@@ -90,9 +103,9 @@ cached adjusted closes ──► validation ──► daily log returns
   (benchmark)        SLSQP          (frontier scan)    (CCD)
         └───────────────┬───────┬────────┴──────────────┘
                         │  hold 63d out-of-sample  │
-                turnover × 10 bps costs
+            turnover × 10 bps costs (deducted)
                         │
-     in-sample vs OOS Sharpe comparison · frontier · figures
+     in-sample vs OOS Sharpe comparison · frontier · bootstrap CIs · figures
 ```
 
 ## 9 · Experimental design
@@ -105,7 +118,8 @@ degradation this project measures.
 
 **Leakage controls.** Estimation windows end exactly one trading day before their
 holding period begins (unit-tested); no statistic ever crosses the boundary; costs are
-charged on realized turnover, not ignored.
+charged AND deducted on realized turnover, not ignored. The trailing partial 63-day
+holding block is excluded from the OOS sample rather than partially evaluated.
 
 **Known limitations of the design** (stated up front): seven assets, one period, one
 cost model; μ estimated as annualized mean log returns (no Black–Litterman or
@@ -121,67 +135,106 @@ shrinkage on the mean vector — a deliberate scope choice discussed in §14).
 | Risk parity | cyclical coordinate descent | long-only (cap-checked) |
 | Efficient frontier | SLSQP at 30 target returns | same |
 
+`configs/default.yaml` is loaded by a strict loader (unknown keys raise); the data
+window itself is controlled by `scripts/download_data.py`.
+
 ## 11 · Evaluation metrics
 
-- **Annualized return, volatility, Sharpe** (in-sample and OOS; `rf = 0`, disclosed).
-- **Sharpe degradation** = OOS Sharpe − in-sample Sharpe per strategy.
+- **Annualized return, volatility, Sharpe** — in-sample and OOS, **net of costs** as
+  headline (`rf = 0`, disclosed); gross Sharpe/return reported for reference.
+- **Sharpe degradation** = OOS net Sharpe − in-sample Sharpe per strategy.
 - **Average turnover and total transaction costs** per strategy.
-- **Ledoit–Wolf shrinkage intensity** (fitted per estimation window).
+- **Ledoit–Wolf shrinkage intensity** (full sample and per walk-forward window).
+- **Bootstrap 95% CIs for pairwise Sharpe differences** (circular blocks).
 
 ## 12 · Results
 
-Actual outputs of the committed run (`reports/`, `figures/`).
+Actual outputs of the committed run (`reports/`, `figures/`). All OOS numbers are
+net of transaction costs (10 bps on one-way turnover, deducted from each
+rebalance-day return); gross figures are shown for reference.
 
-**In-sample vs out-of-sample Sharpe:**
+**In-sample vs out-of-sample Sharpe (30 quarterly rebalances, 1,890 OOS days):**
 
-| Strategy | In-sample Sharpe | OOS Sharpe | Degradation |
-| --- | --- | --- | --- |
-| Equal weight | 0.844 | **1.006** | +0.162 |
-| Min variance | 0.695 | 0.696 | +0.001 |
-| Max Sharpe | **0.906** | 0.876 | −0.030 |
-| Risk parity | 0.831 | 0.975 | +0.144 |
+| Strategy | In-sample Sharpe | OOS Sharpe (net) | OOS Sharpe (gross) | Degradation (net − in-sample) |
+| --- | --- | --- | --- | --- |
+| Equal weight | 0.844 | **1.005** | 1.006 | +0.162 |
+| Risk parity | 0.831 | 0.972 | 0.975 | +0.142 |
+| Max Sharpe | **0.906** | 0.957 | 0.971 | +0.051 |
+| Min variance | 0.695 | 0.691 | 0.696 | −0.004 |
 
-**Out-of-sample performance (net of 10 bps costs, 30 quarterly rebalances, 1,890 OOS days):**
+**Out-of-sample performance (headline = net of 10 bps costs):**
 
-| Strategy | Ann. return | Ann. vol | Sharpe | Avg turnover | Total costs |
-| --- | --- | --- | --- | --- | --- |
-| Equal weight | 18.7% | 18.6% | **1.006** | 0.033 | 0.10% |
-| Risk parity | 16.9% | 17.4% | 0.975 | 0.089 | 0.27% |
-| Max Sharpe | 18.9% | 21.6% | 0.876 | 0.616 | 1.85% |
-| Min variance | 11.6% | 16.6% | 0.696 | 0.219 | 0.66% |
+| Strategy | Ann. return (net) | Ann. vol | Sharpe (net) | Sharpe (gross) | Avg turnover | Total costs |
+| --- | --- | --- | --- | --- | --- | --- |
+| Equal weight | 18.7% | 18.6% | **1.005** | 1.006 | 0.033 | 0.10% |
+| Risk parity | 16.9% | 17.4% | 0.972 | 0.975 | 0.089 | 0.27% |
+| Max Sharpe | 20.1% | 21.0% | 0.957 | 0.971 | 0.619 | 1.86% |
+| Min variance | 11.5% | 16.6% | 0.691 | 0.696 | 0.219 | 0.66% |
 
 **Full-sample frontier portfolios (shrunk covariance):** min variance 15.8% vol at
-11.0% return; max Sharpe 0.906 at 18.8% return / 20.7% vol; risk parity 0.831 at
-14.3% return / 17.2% vol.
+11.0% return; max Sharpe 0.906 at 18.5% return / 20.4% vol; risk parity 0.831 at
+14.3% return / 17.2% vol. Full-sample shrinkage intensity 0.015 (walk-forward
+windows: mean 0.072, range 0.031–0.158).
+
+**Pairwise Sharpe differences — paired circular-block bootstrap 95% CIs** (OOS daily
+net returns; B = 2000, block = 63 days, seed 42):¹
+
+| a − b | diff | 95% CI | Significant at 95%? |
+| --- | --- | --- | --- |
+| Equal weight − min variance | +0.268 | [−0.058, +0.610] | No |
+| Equal weight − max Sharpe | +0.050 | [−0.294, +0.497] | No |
+| Equal weight − risk parity | +0.023 | [−0.105, +0.133] | No |
+| Min variance − max Sharpe | −0.218 | [−0.495, +0.080] | No |
+| **Min variance − risk parity** | **−0.245** | **[−0.499, −0.034]** | **Yes** |
+| Max Sharpe − risk parity | −0.027 | [−0.426, +0.253] | No |
+
+¹ Sensitivity to the block length: the min-variance − risk-parity interval stays
+negative at block 21 ([−0.503, −0.011]) and block 126 ([−0.509, −0.072]); the
+equal-weight − min-variance interval turns (barely) positive only at block 126
+([+0.017, +0.601]) — read conclusions across all three block lengths, stored in
+`reports/optimization_results.json` under `sharpe_diff_bootstrap`.
 
 Figures: [`efficient_frontier.png`](figures/efficient_frontier.png) (frontier, assets
 and special portfolios), [`oos_cumulative.png`](figures/oos_cumulative.png) (growth of
-$1, log scale), [`oos_drawdowns.png`](figures/oos_drawdowns.png),
+$1, log scale, net of costs), [`oos_drawdowns.png`](figures/oos_drawdowns.png),
 [`weights_history.png`](figures/weights_history.png) (weights at every rebalance).
 
 ## 13 · Interpretation
 
-1. **The naive benchmark wins out of sample.** Equal weight delivers the best OOS
-   Sharpe (1.006) despite being the "non-method". This replicates, in this sample, the
-   central result of DeMiguel, Garlappi & Uppal (2009): optimized portfolios rarely beat
-   1/n once estimation error is priced in.
-2. **Max-Sharpe shows the classic pattern — mildly here.** It *looks* best in-sample
-   (0.906) and falls behind equal-weight out of sample (0.876), with by far the highest
-   turnover (0.62 average per rebalance) and 1.85% total costs. Its in-sample advantage
-   was largely an artifact of estimated inputs; the degradation is smaller than the
-   literature's typical finding because this particular window favored equities
-   broadly.
-3. **Min-variance does its job but is not free.** It realizes the lowest OOS volatility
-   (16.6%) exactly as designed, at the cost of the lowest return; its Sharpe is stable
-   (0.695 → 0.696) because it depends mostly on the covariance (estimable) rather than
-   the mean (barely estimable) — a structurally meaningful contrast with max-Sharpe,
-   which leans on μ.
-4. **Risk parity is the robust middle.** Near-benchmark OOS Sharpe (0.975) with low
-   turnover (0.089) and costs (0.27%), and it does not require the mean vector at all —
-   consistent with its appeal under estimation error.
-5. **Costs matter at rebalancing frequency.** Max-Sharpe's 0.616 average one-way
-   turnover per quarter translates into 1.85% cumulative costs over the study — a
-   material drag relative to the spread between strategies.
+1. **The naive benchmark still finishes first — but not by a measurable margin.**
+   Equal weight delivers the best OOS net Sharpe (1.005), replicating in this sample
+   the central result of DeMiguel, Garlappi & Uppal (2009). Yet the block-bootstrap
+   CIs say its edge over max-Sharpe (+0.050) and risk parity (+0.023) is NOT
+   statistically distinguishable from zero; only risk parity vs min-variance is a
+   significant gap.
+2. **Fixing the optimizer changed the max-Sharpe story.** The previous release
+   accepted a clipped closed-form tangency (suboptimal whenever clipping changed the
+   solution). With the corrected solver — closed form only when feasible as-is,
+   otherwise frontier scan + ternary refinement (used in all 32 real-data solves;
+   the closed form was never cap-feasible) — max-Sharpe's gross OOS Sharpe rises
+   0.876 → 0.971 and net of its 1.86% cost drag it delivers 0.957, close to its
+   0.906 in-sample promise. This is a period effect (the OOS window favored equities),
+   not evidence of robust skill: the estimation-error warning stands, but the old
+   numbers understate what a correct optimizer delivers.
+3. **Min-variance does its job but is not free.** It realizes the lowest OOS
+   volatility (16.6%) exactly as designed, at the cost of the lowest return; its net
+   Sharpe slips just below its in-sample value (0.695 → 0.691) — the covariances it
+   relies on are estimable, but its Sharpe is the only one that degrades, and the
+   bootstrap marks it significantly worse than risk parity.
+4. **Risk parity is the robust middle.** OOS net Sharpe 0.972 with low turnover
+   (0.089) and costs (0.27%), no reliance on the mean vector, and — per the bootstrap
+   — the only strategy significantly ahead of min-variance across all block lengths.
+5. **Costs matter at rebalancing frequency — now measurably.** Max-Sharpe's 0.619
+   average one-way turnover per quarter costs 1.86% cumulatively (≈0.30%/yr including
+   lost compounding), versus 0.10% for equal weight. That drag is the difference
+   between gross 0.971 and net 0.957 — material relative to the (statistically
+   insignificant) gaps between strategies.
+6. **Statistical vs economic significance.** A CI excluding zero is a statement
+   about sampling noise only. The one significant difference (risk parity over
+   min-variance, ≈0.25 Sharpe) is also economically meaningful (lower vol, higher
+   return, lower turnover); the insignificant equal-weight lead is achieved with the
+   least turnover, so the defensible practical conclusion is “nothing beats 1/n
+   convincingly, and cheaper strategies do not lose anything measurable”.
 
 ## 14 · Limitations
 
@@ -194,6 +247,14 @@ $1, log scale), [`oos_drawdowns.png`](figures/oos_drawdowns.png),
   and taxes.
 - **No risk-free asset in the opportunity set.** The tangency portfolio assumes
   borrowing/lending at `rf`; the cap constrains it further.
+- **Bootstrap assumptions.** The circular-block bootstrap treats each OOS series as
+  approximately stationary and captures dependence up to the block length (63 days,
+  with 21/126-day sensitivity); longer-range dependence (multi-year regimes) is not
+  captured, percentile CIs can undercover near boundaries, and conclusions are read
+  across block lengths rather than from a single choice.
+- **Trailing partial block.** The final 61 trading days (an incomplete 63-day holding
+  block) are not used out of sample; the study window effectively ends 61 days before
+  the data does.
 - **CAPM-era assumptions.** No factor models (Black–Litterman, robust Bayes, HRP) —
   future work.
 - **Log-return annualization** approximates arithmetic compounding.
@@ -211,7 +272,8 @@ python scripts/download_data.py
 # 3) full study (~1 min; deterministic)
 python scripts/run_optimization.py
 
-# 4) verify: lint + 9 offline unit tests (incl. window-disjointness)
+# 4) verify: lint + 30 offline tests (incl. window-disjointness and an
+#    optimality regression vs the exact capped tangency)
 ruff check .
 pytest -q
 ```
@@ -248,14 +310,28 @@ print(dict(zip(returns.columns, w_rp.round(3))))
 
 ## 18 · Example
 
-Actual risk-parity weights implied by the full-sample shrunk covariance (values from
-the committed run):
+Full-sample weights under the shrunk covariance (exact values from the committed
+run, also stored in `optimization_results.json` → `weights_full_sample`):
 
-- the lowest-volatility defensive names (PG, JNJ) receive the largest risk budgets;
-- high-volatility names (AMZN, AAPL) receive the smallest weights despite strong
-  returns — equalizing *risk contribution*, not capital;
-- the resulting OOS Sharpe (0.975) is within touching distance of equal weight with
-  one-third of max-Sharpe's costs.
+| Ticker | Equal weight | Min variance | Max Sharpe | Risk parity |
+| --- | --- | --- | --- | --- |
+| AAPL | 14.29% | 0.00% | 33.07% | 10.93% |
+| MSFT | 14.29% | 4.26% | 27.59% | 11.59% |
+| JNJ | 14.29% | 35.51% | 24.86% | 20.07% |
+| JPM | 14.29% | 3.60% | 8.22% | 12.36% |
+| XOM | 14.29% | 12.79% | 6.26% | 14.04% |
+| PG | 14.29% | 33.65% | 0.00% | 19.61% |
+| AMZN | 14.29% | 10.19% | 0.00% | 11.40% |
+
+Reading the risk-parity column (the worked example):
+
+- the lowest-volatility defensive names (JNJ 20.1%, PG 19.6%) receive the largest
+  capital weights;
+- high-volatility names (AAPL 10.9%, AMZN 11.4%) receive the smallest weights
+  despite strong returns — equalizing *risk contribution*, not capital;
+- the resulting OOS net Sharpe (0.972) is within touching distance of equal weight
+  with one-seventh of max-Sharpe's costs — and, per the bootstrap, significantly
+  ahead of min-variance.
 
 ## 19 · Project structure
 
@@ -265,14 +341,15 @@ portfolio-optimization-lab/
 ├── LICENSE · CITATION.cff · pyproject.toml · requirements.txt
 ├── .python-version · .gitignore
 ├── src/portfolio_optimization_lab/
-│   ├── config.py         # dataclass config (windows, cap, costs, seed)
+│   ├── config.py         # dataclass config + strict YAML loader (unknown keys raise)
 │   ├── data.py           # cached price loading + validation
 │   ├── estimates.py      # mu, sample/LW covariance, portfolio stats
-│   ├── optimization.py   # min-var, max-Sharpe, risk parity, frontier
-│   ├── backtest.py       # walk-forward loop, costs, in-sample comparison
+│   ├── optimization.py   # min-var, max-Sharpe, risk parity, frontier + solver counters
+│   ├── backtest.py       # walk-forward loop, net-of-cost deduction, in-sample comparison
+│   ├── bootstrap.py      # circular block bootstrap for Sharpe differences
 │   ├── plots.py          # frontier, cumulative growth, drawdowns, weights
-│   └── pipeline.py       # orchestration + reports
-├── tests/                # 9 offline tests incl. window-disjointness
+│   └── pipeline.py       # orchestration + strict-JSON reports
+├── tests/                # 30 offline tests incl. window-disjointness + optimality regression
 ├── notebooks/            # frontier & estimation-error walkthrough
 ├── scripts/              # download_data.py, run_optimization.py
 ├── configs/default.yaml

@@ -27,5 +27,3 @@ jobs:
 
       - name: Tests (pytest, no network)
         run: pytest tests/ -q
-        env:
-          FRED_API_KEY: ""  # tests must never touch the network

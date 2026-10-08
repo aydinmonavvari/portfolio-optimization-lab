@@ -18,9 +18,11 @@ def load_price_frame(
 ) -> pd.DataFrame:
     """Load cached per-ticker CSVs and return an aligned adjusted-close frame.
 
-    Each ``<TICKER>.csv`` in ``raw_dir`` must contain at least
-    ``observation_date`` and ``adj_close`` columns (the format produced by the
-    download script). The function returns a DataFrame indexed by date with one
+    Each ``<TICKER>.csv`` in ``raw_dir`` must have the two-column layout
+    written by ``scripts/download_data.py``: a header row ``Date,<TICKER>``
+    with ISO dates in the first column and adjusted closes in the second (the
+    loader reads the first column as the date index and the LAST column as the
+    value column). The function returns a DataFrame indexed by date with one
     column per ticker + the benchmark.
 
     Raises

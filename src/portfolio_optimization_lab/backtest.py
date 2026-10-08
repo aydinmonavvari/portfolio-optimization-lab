@@ -5,6 +5,13 @@ At each rebalance date ``t`` the estimators see ONLY the trailing
 the following ``holding_period`` days and scored on returns realized *after*
 ``t``. Estimation and evaluation windows are therefore strictly disjoint by
 construction — a property covered by unit tests.
+
+Transaction costs are deducted from the strategy returns themselves: on each
+rebalance day the one-way turnover (fraction of the portfolio traded) times
+``cost_bps / 1e4`` is subtracted from that day's return, so every reported
+headline metric (annualized return, volatility, Sharpe, drawdowns, cumulative
+growth) is a TRUE net-of-cost number. Gross-of-cost metrics are retained as
+reference columns so the cost drag is always visible.
 """
 
 from __future__ import annotations
@@ -71,16 +78,25 @@ def walk_forward_backtest(
     rf_annual: float = 0.0,
     use_shrunk_cov: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Run the rolling estimation/holding study.
+    """Run the rolling estimation/holding study, net of transaction costs.
+
+    On every rebalance day the one-way turnover ``t`` (fraction of the
+    portfolio traded, as computed below) generates a cost ``t * cost_bps/1e4``
+    which is subtracted from that day's strategy return. All headline metrics
+    are computed on this NET daily series; gross metrics are kept for
+    reference so the cost drag can be quantified.
 
     Returns
     -------
     daily_returns:
-        DataFrame of out-of-sample daily log returns per strategy (indexed by
-        the full out-of-sample date range).
+        DataFrame of out-of-sample daily NET log returns per strategy (indexed
+        by the full out-of-sample date range). Cost drags are embedded in the
+        rebalance-day entries.
     performance:
-        Per-strategy summary: annualized return/volatility, Sharpe, average
-        rebalance turnover and total transaction costs.
+        Per-strategy summary computed on the NET series: annualized
+        return/volatility, Sharpe, average rebalance turnover and total
+        transaction costs, plus ``ann_return_gross`` / ``sharpe_gross``
+        reference columns computed before cost deduction.
     weights_history:
         One row per (rebalance date, strategy) with the weight vector.
     """
@@ -93,7 +109,8 @@ def walk_forward_backtest(
     n_assets = returns.shape[1]
     columns = returns.columns
 
-    daily: dict[str, list[np.ndarray]] = {s: [] for s in strategies}
+    daily_gross: dict[str, list[np.ndarray]] = {s: [] for s in strategies}
+    daily_net: dict[str, list[np.ndarray]] = {s: [] for s in strategies}
     turnover: dict[str, list[float]] = {s: [] for s in strategies}
     weights_history_rows: list[pd.Series] = []
 
@@ -109,12 +126,17 @@ def walk_forward_backtest(
 
         for strategy in strategies:
             w = weights_for(strategy, est.mu, est.cov, max_weight)
-            daily[strategy].append(hold_returns @ w)
+            gross_block = hold_returns @ w
             turn = (
                 float(np.abs(w - prev_weights[strategy]).sum())
                 if prev_weights[strategy].sum() > 0
                 else float(np.abs(w).sum())  # initial build-up counts as turnover
             )
+            # True cost deduction: the rebalance-day return pays turnover x bps.
+            net_block = gross_block.copy()
+            net_block[0] -= turn * cost_bps / 1e4
+            daily_gross[strategy].append(gross_block)
+            daily_net[strategy].append(net_block)
             turnover[strategy].append(turn)
             prev_weights[strategy] = w
             row = pd.Series(w, index=columns, name=index[start])
@@ -123,7 +145,12 @@ def walk_forward_backtest(
         start += holding_period
 
     daily_returns = pd.DataFrame(
-        {s: np.concatenate(daily[s]) for s in strategies}, index=index[estimation_window : start]
+        {s: np.concatenate(daily_net[s]) for s in strategies},
+        index=index[estimation_window:start],
+    )
+    gross_returns = pd.DataFrame(
+        {s: np.concatenate(daily_gross[s]) for s in strategies},
+        index=index[estimation_window:start],
     )
     weights_history = pd.DataFrame(weights_history_rows)
 
@@ -132,11 +159,17 @@ def walk_forward_backtest(
     years = oos_days / periods_per_year
     for strategy in strategies:
         series = daily_returns[strategy]
+        gross_series = gross_returns[strategy]
         total_log = float(series.sum())
         ann_return = float(np.exp(total_log / years) - 1.0)
         ann_vol = float(series.std(ddof=1) * np.sqrt(periods_per_year))
+        ann_return_gross = float(np.exp(float(gross_series.sum()) / years) - 1.0)
+        ann_vol_gross = float(gross_series.std(ddof=1) * np.sqrt(periods_per_year))
         costs_total = float(np.sum(turnover[strategy]) * cost_bps / 1e4)
         sharpe = (ann_return - rf_annual) / ann_vol if ann_vol > 0 else float("nan")
+        sharpe_gross = (
+            (ann_return_gross - rf_annual) / ann_vol_gross if ann_vol_gross > 0 else float("nan")
+        )
         rows.append(
             {
                 "strategy": strategy,
@@ -145,12 +178,38 @@ def walk_forward_backtest(
                 "ann_return": ann_return,
                 "ann_volatility": ann_vol,
                 "sharpe": sharpe,
+                "ann_return_gross": ann_return_gross,
+                "sharpe_gross": sharpe_gross,
                 "avg_turnover": float(np.mean(turnover[strategy])),
                 "total_costs_pct": costs_total * 100.0,
             }
         )
     performance = pd.DataFrame(rows).set_index("strategy")
     return daily_returns, performance, weights_history
+
+
+def walk_forward_shrinkage(
+    returns: pd.DataFrame,
+    estimation_window: int = 252,
+    holding_period: int = 63,
+    periods_per_year: int = 252,
+) -> list[float]:
+    """Ledoit–Wolf shrinkage intensity of every walk-forward estimation window.
+
+    Mirrors the window enumeration of :func:`walk_forward_backtest` exactly
+    (same slices, same order) so callers can report the intensities the
+    backtest actually used without re-running the optimization.
+    """
+    intensities: list[float] = []
+    start = estimation_window
+    while start + holding_period <= len(returns):
+        est = estimate(
+            returns.iloc[start - estimation_window : start],
+            periods_per_year=periods_per_year,
+        )
+        intensities.append(est.shrinkage)
+        start += holding_period
+    return intensities
 
 
 def in_sample_stats(

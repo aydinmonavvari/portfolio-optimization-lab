@@ -1,8 +1,12 @@
 # Portfolio-optimization-lab default configuration.
-# All values can be overridden programmatically via OptConfig.
+# Loaded by scripts/run_optimization.py via load_config() — STRICT: unknown
+# keys raise ValueError. All values can also be overridden programmatically
+# via OptConfig.
+# The data window (sample start/end) is NOT set here: it is controlled by
+# scripts/download_data.py (--start/--end), and the cached CSVs in data/raw/
+# define the actual estimation+evaluation sample.
 tickers: [AAPL, MSFT, JNJ, JPM, XOM, PG, AMZN]
 benchmark: SPY
-start: "2018-01-01"
 rf_annual: 0.0          # risk-free assumption, disclosed in all outputs
 estimation_window: 252  # trading days
 holding_period: 63      # out-of-sample days per rebalance (~1 quarter)

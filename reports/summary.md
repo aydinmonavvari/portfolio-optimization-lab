@@ -4,21 +4,25 @@
 
 ## In-sample vs out-of-sample Sharpe (the estimation-error story)
 
-| strategy     |   in_sample_sharpe |   oos_sharpe |   sharpe_degradation |
-|:-------------|-------------------:|-------------:|---------------------:|
-| equal_weight |             0.8438 |       1.0062 |               0.1624 |
-| min_variance |             0.695  |       0.6962 |               0.0012 |
-| max_sharpe   |             0.9057 |       0.8758 |              -0.0299 |
-| risk_parity  |             0.8306 |       0.9745 |               0.1439 |
+OOS Sharpes are net of transaction costs (10 bps on one-way turnover,
+deducted from each rebalance-day return); the gross column is shown for
+reference so the cost drag is visible.
 
-## Out-of-sample performance
+| strategy     |   in_sample_sharpe |   oos_sharpe_net |   oos_sharpe_gross |   sharpe_degradation |
+|:-------------|-------------------:|-----------------:|-------------------:|---------------------:|
+| equal_weight |             0.8438 |           1.0055 |             1.0062 |               0.1617 |
+| min_variance |             0.695  |           0.6905 |             0.6962 |              -0.0045 |
+| max_sharpe   |             0.9061 |           0.9569 |             0.9707 |               0.0509 |
+| risk_parity  |             0.8306 |           0.9723 |             0.9745 |               0.1417 |
 
-| strategy     |   oos_days |   n_rebalances |   ann_return |   ann_volatility |   sharpe |   avg_turnover |   total_costs_pct |
-|:-------------|-----------:|---------------:|-------------:|-----------------:|---------:|---------------:|------------------:|
-| equal_weight |       1890 |             30 |       0.1871 |           0.1859 |   1.0062 |         0.0333 |            0.1    |
-| min_variance |       1890 |             30 |       0.1158 |           0.1663 |   0.6962 |         0.2189 |            0.6566 |
-| max_sharpe   |       1890 |             30 |       0.1888 |           0.2156 |   0.8758 |         0.6164 |            1.8493 |
-| risk_parity  |       1890 |             30 |       0.1695 |           0.1739 |   0.9745 |         0.0888 |            0.2663 |
+## Out-of-sample performance (headline = net of costs)
+
+| strategy     |   oos_days |   n_rebalances |   ann_return |   ann_volatility |   sharpe |   ann_return_gross |   sharpe_gross |   avg_turnover |   total_costs_pct |
+|:-------------|-----------:|---------------:|-------------:|-----------------:|---------:|-------------------:|---------------:|---------------:|------------------:|
+| equal_weight |       1890 |             30 |       0.1869 |           0.1859 |   1.0055 |             0.1871 |         1.0062 |         0.0333 |            0.1    |
+| min_variance |       1890 |             30 |       0.1148 |           0.1663 |   0.6905 |             0.1158 |         0.6962 |         0.2189 |            0.6566 |
+| max_sharpe   |       1890 |             30 |       0.2012 |           0.2102 |   0.9569 |             0.2041 |         0.9707 |         0.6192 |            1.8576 |
+| risk_parity  |       1890 |             30 |       0.169  |           0.1739 |   0.9723 |             0.1695 |         0.9745 |         0.0888 |            0.2663 |
 
 ## Special portfolios (full-sample estimates, shrunk covariance)
 
@@ -26,14 +30,35 @@
 | --- | --- | --- | --- |
 | equal weight | 0.1551 | 0.1838 | 0.8438 |
 | min variance | 0.1101 | 0.1583 | 0.6950 |
-| max sharpe | 0.1876 | 0.2072 | 0.9057 |
+| max sharpe | 0.1853 | 0.2045 | 0.9061 |
 | risk parity | 0.1430 | 0.1721 | 0.8306 |
+
+## Pairwise Sharpe differences (paired circular-block bootstrap)
+
+95% percentile CIs for Sharpe(a) − Sharpe(b) on OOS daily NET returns;
+B = 2000 circular blocks of 63 days, seed 42; sensitivity at block lengths
+21 and 126 is stored in the JSON output. 'significant' = the 95% CI
+excludes 0 (statistical, not economic, significance).
+
+| a | b | diff | ci_low | ci_high | significant_95 |
+| --- | --- | --- | --- | --- | --- |
+| equal_weight | min_variance | 0.2681 | -0.0578 | 0.6100 | False |
+| equal_weight | max_sharpe | 0.0498 | -0.2944 | 0.4970 | False |
+| equal_weight | risk_parity | 0.0234 | -0.1050 | 0.1328 | False |
+| min_variance | max_sharpe | -0.2182 | -0.4948 | 0.0796 | False |
+| min_variance | risk_parity | -0.2447 | -0.4990 | -0.0340 | True |
+| max_sharpe | risk_parity | -0.0265 | -0.4260 | 0.2527 | False |
 
 ## Caveats
 
 - Mean–variance inputs are estimated, not known: in-sample Sharpe ratios are
   systematically optimistic and the walk-forward column is the honest estimate.
 - Ledoit–Wolf shrinkage is applied to stabilize the covariance; the shrinkage
-  intensity is reported in the JSON output.
-- Costs of 10 bps on turnover are charged at every rebalance.
+  intensities (full sample and per walk-forward window) are reported in the
+  JSON output.
+- Costs of 10 bps on turnover are charged AND deducted at every rebalance:
+  the Sharpe column is net of costs, with gross Sharpe reported alongside.
+- The trailing partial 63-day holding block is not used out of sample.
+- Block-bootstrap CIs quantify sampling uncertainty only; statistical
+  significance (CI excluding 0) is not economic significance.
 - Educational research project — not investment advice.

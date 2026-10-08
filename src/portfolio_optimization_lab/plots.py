@@ -49,7 +49,6 @@ def plot_frontier(
 
 def plot_weights_history(weights_history: pd.DataFrame, title: str):
     """Stacked area of one strategy's weights across rebalances."""
-    weights_history.drop(columns=["strategy"])
     strategies = weights_history["strategy"].unique()
     fig, axes = plt.subplots(len(strategies), 1, figsize=(10, 3 * len(strategies)), sharex=True)
     if len(strategies) == 1:

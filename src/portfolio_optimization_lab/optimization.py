@@ -1,12 +1,25 @@
 """Mean–variance and risk-parity portfolio construction.
 
-All optimizers solve constrained problems with ``scipy.optimize.minimize``
-(SLSQP) under: long-only weights, full investment (weights sum to 1) and an
-optional per-asset upper bound. Objectives are rescaled internally (annualized
-variance entries are O(1e-2), which stalls SLSQP near the initial point);
-risk parity uses the dedicated cyclical coordinate descent algorithm of
-Griveau-Billion, Richard & Roncalli (2013), which is the standard robust
-method for the equal-risk-contribution problem.
+Optimizers and their solvers:
+
+- ``min_variance`` — quadratic program solved with ``scipy.optimize.minimize``
+  (SLSQP) under long-only weights, full investment (weights sum to 1) and an
+  optional per-asset upper bound. Objectives are rescaled internally
+  (annualized variance entries are O(1e-2), which stalls SLSQP near the
+  initial point).
+- ``max_sharpe`` — closed-form unconstrained tangency ``Sigma^-1 (mu - rf)``
+  when that vector already satisfies the constraint set; otherwise the
+  constrained tangency is located on the efficient frontier traced with the
+  min-variance solver (25-point target-return scan + ternary refinement).
+- ``risk_parity`` — the dedicated cyclical coordinate descent algorithm of
+  Griveau-Billion, Richard & Roncalli (2013), the standard robust method for
+  the equal-risk-contribution problem (not SLSQP).
+
+The min-variance solver applies a defensive clip-and-renormalize to the SLSQP
+output; every time this safety net measurably alters a solution (and every
+time each ``max_sharpe`` branch is taken) it is counted in
+:func:`solver_diagnostics` so downstream runs can report solver behaviour
+instead of hiding it.
 """
 
 from __future__ import annotations
@@ -16,6 +29,34 @@ import pandas as pd
 from scipy.optimize import minimize
 
 _OBJECTIVE_SCALE = 1.0e3  # bring annualized-variance objectives to O(1)
+
+# Tolerances for the defensive clip+renormalize safety net (see min_variance).
+_SAFETY_NEG_TOL = 1e-9
+_SAFETY_SUM_TOL = 1e-9
+
+# Counters for solver behaviour that would otherwise be invisible. Mutated in
+# place (never rebound) so module-level state survives resets.
+_SOLVER_DIAGNOSTICS: dict[str, int] = {
+    "min_variance_clip_renorm": 0,
+    "max_sharpe_closed_form": 0,
+    "max_sharpe_frontier_scan": 0,
+}
+
+
+def solver_diagnostics() -> dict[str, int]:
+    """Snapshot of solver fallback counters since the last reset.
+
+    ``min_variance_clip_renorm`` counts how often the defensive
+    clip-and-renormalize applied to the SLSQP output measurably changed the
+    solution; ``max_sharpe_closed_form`` / ``max_sharpe_frontier_scan`` count
+    which ``max_sharpe`` branch produced the returned weights.
+    """
+    return dict(_SOLVER_DIAGNOSTICS)
+
+
+def reset_solver_diagnostics() -> None:
+    """Zero all solver fallback counters (call at the start of a full run)."""
+    _SOLVER_DIAGNOSTICS.update(dict.fromkeys(_SOLVER_DIAGNOSTICS, 0))
 
 
 class TangencyInfeasibleError(RuntimeError):
@@ -74,7 +115,15 @@ def min_variance(
     )
     if not res.success:
         raise RuntimeError(f"min-variance optimizer failed: {res.message}")
-    w = np.clip(res.x, 0.0, None)
+    # Defensive safety net: SLSQP can return tiny negative weights or a budget
+    # off by float noise. Clip and renormalize, but COUNT every run where the
+    # net measurably alters the solver's answer (thresholds above) — the
+    # counter is exposed via solver_diagnostics() and persisted in the JSON
+    # output so a systematically active safety net would be visible, not hidden.
+    w = np.asarray(res.x, dtype=float)
+    if (w < -_SAFETY_NEG_TOL).any() or abs(float(w.sum()) - 1.0) > _SAFETY_SUM_TOL:
+        _SOLVER_DIAGNOSTICS["min_variance_clip_renorm"] += 1
+    w = np.clip(w, 0.0, None)
     return w / w.sum()
 
 
@@ -86,13 +135,33 @@ def max_sharpe(
 ) -> np.ndarray:
     """Maximum Sharpe ratio (tangency) portfolio under the constraint set.
 
-    Strategy: the unconstrained tangency portfolio has the closed form
-    ``w ∝ Sigma^-1 (mu - rf)``. If that solution already satisfies the
-    long-only and cap constraints it IS the constrained optimum and is
-    returned directly. Otherwise the problem is solved numerically via the
-    convex reformulation of Cornuejols & Tütüncü (2006): minimize
-    ``y' Sigma y`` s.t. ``(mu - rf)' y = 1``, ``y >= 0``, ``y_i <= cap*sum(y)``,
-    then ``w = y / sum(y)``.
+    Algorithm (exactly what is implemented):
+
+    1. **Closed-form candidate.** The unconstrained tangency portfolio has the
+       closed form ``w \u221d Sigma^-1 (mu - rf)``. If that vector already
+       satisfies long-only and cap constraints *without any modification*
+       (``min(w) >= -1e-12`` and, when a cap is given, ``max(w) <= cap``), it
+       IS the constrained optimum and is returned directly. The candidate is
+       never clipped or renormalized into feasibility: if clipping would be
+       required, the closed-form point is not the constrained optimum and we
+       fall through to step 2 (returning a clipped candidate would be
+       suboptimal whenever any weight is altered).
+    2. **Constrained fallback: frontier scan + ternary search.** Otherwise the
+       cap-feasible efficient frontier is traced with the (reliable)
+       min-variance solver: the Sharpe ratio along the frontier is unimodal in
+       the target return, so a 25-point scan over ``[0, max achievable excess
+       return]`` (the latter from the greedy cap-filling portfolio) is refined
+       by ternary search (40 iterations, interval tolerance 1e-7). The
+       returned weights are the frontier point with the highest Sharpe.
+
+    Raises
+    ------
+    TangencyInfeasibleError
+        If no asset has positive excess return, or the maximum achievable
+        cap-feasible excess return is non-positive (every risky portfolio is
+        dominated by the risk-free asset).
+    RuntimeError
+        If the frontier scan fails entirely.
     """
     sigma = cov.to_numpy()
     excess = mu.to_numpy() - rf_annual
@@ -102,20 +171,20 @@ def max_sharpe(
             "no asset has positive excess return; the tangency portfolio is undefined"
         )
 
-    # 1) closed-form candidate (exact when constraints are inactive)
+    # 1) closed-form candidate: accept ONLY if feasible as-is (no clipping)
     try:
         w_cf = np.linalg.solve(sigma, excess)
-        w_cf = np.clip(w_cf, 0.0, None)
-        if w_cf.sum() > 0:
-            w_cf /= w_cf.sum()
-            if max_weight is None or (w_cf <= max_weight + 1e-9).all():
-                return w_cf
+        total = float(w_cf.sum())
+        cap_ok = max_weight is None or float(w_cf.max()) <= max_weight + 1e-12
+        if total > 0 and float(w_cf.min()) >= -1e-12 and cap_ok:
+            _SOLVER_DIAGNOSTICS["max_sharpe_closed_form"] += 1
+            return w_cf / total
     except np.linalg.LinAlgError:
-        w_cf = None
+        pass  # singular covariance: fall through to the frontier scan
 
     # 2) frontier scan: the tangency portfolio is the max-Sharpe point on the
     # constrained efficient frontier, which we can trace robustly with the
-    # (reliable) min-variance solver, then refine by bisection on the target
+    # (reliable) min-variance solver, then refine by ternary search on the target
     cap = max_weight if max_weight is not None else 1.0
     order = np.argsort(-excess)
     w_greedy = np.zeros(n)
@@ -171,6 +240,7 @@ def max_sharpe(
         else:
             b = m2
             best = max(best, s1, key=lambda p: p[0])
+    _SOLVER_DIAGNOSTICS["max_sharpe_frontier_scan"] += 1
     return best[1]
 
 
