@@ -504,7 +504,7 @@ If you use this work, please cite (see also [`CITATION.cff`](CITATION.cff)):
   author  = {Monavvari, Aydin},
   title   = {portfolio-optimization-lab: mean-variance and risk-parity optimization with leakage-free walk-forward evaluation},
   year    = {2026},
-  version = {1.0.0},
+  version = {1.1.0},
   url     = {https://github.com/aydinmonavvari/portfolio-optimization-lab}
 }
 ```

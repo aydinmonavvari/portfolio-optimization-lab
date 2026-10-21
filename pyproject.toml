@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "portfolio-optimization-lab"
-version = "1.0.0"
+version = "1.1.0"
 description = "Mean-variance and risk-parity portfolio optimization with shrinkage covariance and a leakage-free walk-forward evaluation (educational research project)."
 readme = "README.md"
 requires-python = ">=3.11"
