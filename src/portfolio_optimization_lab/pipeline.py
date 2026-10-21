@@ -26,17 +26,51 @@ from .optimization import (
     risk_parity,
     solver_diagnostics,
 )
+from .uncertainty import SEED_2026_RESERVED_UNUSED, full_suite  # noqa: F401
+
+PLACEBO_RECORDS_FILENAME = "placebo_records.jsonl"
+PLACEBO_ARTIFACT_FILENAME = "placebo_simulation.json"
+
+
+def load_placebo_records(reports_dir: Path) -> list[dict] | None:
+    """Load persisted per-world placebo records (one strict-JSON object/line).
+
+    Returns ``None`` when the file does not exist so the caller can mark the
+    placebo as NOT RUN instead of silently reporting an empty simulation.
+    """
+    path = Path(reports_dir) / PLACEBO_RECORDS_FILENAME
+    if not path.exists():
+        return None
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            records.append(json.loads(line))
+    return records or None
 
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline(config: OptConfig | None = None, save_outputs: bool = True) -> dict:
+def run_pipeline(
+    config: OptConfig | None = None,
+    save_outputs: bool = True,
+    placebo_records: list[dict] | None = None,
+) -> dict:
     """Run the full study: estimates, frontier, walk-forward backtest, reports.
 
     Headline performance numbers are NET of transaction costs (the cost drag
     is deducted from rebalance-day returns inside the backtest); gross metrics
     are kept alongside for reference. Solver fallback counters are reset at
     the start of the run and persisted with the outputs.
+
+    PHASE 2 (pre-registered): the uncertainty-aware evaluation suite is
+    computed on the OOS net daily returns and persisted to
+    ``reports/uncertainty.json``, ``reports/cost_sensitivity.csv``,
+    ``reports/rank_stability.csv``. The placebo simulation is NOT re-simulated
+    here: pass pre-computed per-world records (or drop
+    ``reports/placebo_records.jsonl`` next to the reports directory, one
+    strict-JSON object per line, produced chunk-wise by the documented scratch
+    runner) — otherwise the placebo is reported as NOT RUN.
     """
     config = config or OptConfig()
     config.ensure_dirs()
@@ -122,6 +156,23 @@ def run_pipeline(config: OptConfig | None = None, save_outputs: bool = True) -> 
         sensitivity_blocks=(21, 126),
     )
 
+    # ---- 5. PHASE 2 uncertainty-aware evaluation suite (pre-registered) ----
+    uncertainty_suite = full_suite(
+        daily,
+        returns,
+        B=2000,
+        blocks=(21, config.holding_period, 126),
+        seed=config.seed,
+        cost_grid_values=(0.0, 10.0, 25.0, 50.0, 75.0, 100.0),
+        placebo_records=placebo_records,
+        real_diffs=_real_pairwise_diffs(sharpe_bootstrap),
+        periods_per_year=config.periods_per_year,
+        estimation_window=config.estimation_window,
+        holding_period=config.holding_period,
+        max_weight=config.max_weight,
+        rf_annual=config.rf_annual,
+    )
+
     diagnostics = solver_diagnostics()
 
     if save_outputs:
@@ -139,6 +190,7 @@ def run_pipeline(config: OptConfig | None = None, save_outputs: bool = True) -> 
             wf_shrinkage,
             diagnostics,
             sharpe_bootstrap,
+            uncertainty_suite,
         )
 
     return {
@@ -154,7 +206,17 @@ def run_pipeline(config: OptConfig | None = None, save_outputs: bool = True) -> 
         "shrinkage_walk_forward": wf_shrinkage,
         "solver_diagnostics": diagnostics,
         "sharpe_diff_bootstrap": sharpe_bootstrap,
+        "uncertainty_suite": uncertainty_suite,
     }
+
+
+def _real_pairwise_diffs(sharpe_bootstrap: dict) -> dict[str, float]:
+    """Real-data pairwise daily-convention diffs keyed for the placebo summary."""
+    out: dict[str, float] = {}
+    for pair in sharpe_bootstrap.get("pairs", []):
+        key = f"{pair['a']}__minus__{pair['b']}"
+        out[key] = float(pair["diff"])
+    return out
 
 
 def _one_hot(n: int, i: int) -> object:
@@ -201,6 +263,7 @@ def _save_outputs(
     shrinkage_walk_forward: list[float],
     diagnostics: dict[str, int],
     sharpe_bootstrap: dict,
+    uncertainty_suite: dict | None = None,
 ) -> None:
     # Infeasible frontier targets carry NaN volatility internally; they are
     # emitted as JSON null by strict_json_dumps (never as NaN tokens).
@@ -246,7 +309,46 @@ def _save_outputs(
     )
     performance.round(6).to_csv(config.reports_dir / "oos_performance.csv")
     comparison.round(6).to_csv(config.reports_dir / "in_vs_out_of_sample.csv")
-    _write_summary(config, payload, performance, comparison)
+
+    # ---- PHASE 2 artifacts (pre-registered file manifest) -----------------
+    suite = uncertainty_suite or {}
+    placebo_payload: dict = {"status": "not_run", "disclosure": (
+        "per-world records were not supplied and "
+        f"{PLACEBO_RECORDS_FILENAME} was not found; run the documented "
+        "chunk-wise scratch runner to produce them"
+    )}
+    if suite:
+        (config.reports_dir / "uncertainty.json").write_text(
+            strict_json_dumps(
+                {
+                    k: v
+                    for k, v in suite.items()
+                    if k not in ("cost_sensitivity", "placebo_summary")
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        if "cost_sensitivity" in suite:
+            pd.DataFrame(suite["cost_sensitivity"]["rows"]).round(8).to_csv(
+                config.reports_dir / "cost_sensitivity.csv", index=False
+            )
+        # rank stability table: per-window daily-convention Sharpes
+        if "subwindow_stability" in suite:
+            sw = suite["subwindow_stability"]
+            rank_table = pd.DataFrame(sw["window_sharpes_daily"])
+            rank_table.index.name = "window"
+            rank_table.round(6).to_csv(config.reports_dir / "rank_stability.csv")
+        if "placebo_summary" in suite:
+            placebo_payload = {
+                "status": "complete",
+                "M": suite["placebo_summary"]["M"],
+                "summary": suite["placebo_summary"],
+            }
+            (config.reports_dir / PLACEBO_ARTIFACT_FILENAME).write_text(
+                strict_json_dumps(placebo_payload) + "\n", encoding="utf-8"
+            )
+    _write_summary(config, payload, performance, comparison, sharpe_bootstrap, suite)
 
     figs = {
         "efficient_frontier.png": plots.plot_frontier(
@@ -260,6 +362,27 @@ def _save_outputs(
             weights_history, "Rebalance-date weights per strategy"
         ),
     }
+    if suite:
+        if "levels_and_ranks" in suite:
+            figs["sharpe_level_cis.png"] = plots.plot_level_cis(
+                suite["levels_and_ranks"]
+            )
+            figs["rank_frequencies.png"] = plots.plot_rank_frequencies(
+                suite["levels_and_ranks"]["rank_frequencies"]
+            )
+        if "cost_sensitivity" in suite:
+            figs["cost_sensitivity.png"] = plots.plot_cost_curves(
+                suite["cost_sensitivity"]
+            )
+    if placebo_payload.get("status") == "complete":
+        records_path = config.reports_dir / PLACEBO_RECORDS_FILENAME
+        records = load_placebo_records(config.reports_dir) or []
+        if records:
+            figs["placebo_rank_dist.png"] = plots.plot_placebo_rank_dist(
+                placebo_payload["summary"]["oracle_rank_counts"],
+                m=placebo_payload["summary"]["M"],
+                records_present=records_path.exists(),
+            )
     for name, fig in figs.items():
         fig.savefig(config.figures_dir / name, dpi=150)
         plt_close(fig)
@@ -277,6 +400,7 @@ def _write_summary(
     performance: pd.DataFrame,
     comparison: pd.DataFrame,
     sharpe_bootstrap: dict | None = None,
+    uncertainty_suite: dict | None = None,
 ) -> None:
     lines = [
         "# Portfolio Optimization Lab — Results Summary",
@@ -324,6 +448,170 @@ def _write_summary(
         )
     lines += [
         "",
+        "NOTE on the flag column: `significant_95` is UNADJUSTED (per-pair CI "
+        "statement only). The registered multiplicity-safe reading is the Holm "
+        "family below — no pairwise claim may be quoted without its Holm column.",
+        "",
+    ]
+
+    suite = uncertainty_suite or {}
+    if "pairwise_holm" in suite:
+        lines += [
+            "## Pairwise differences, multiplicity-safe (Holm step-down, FWER 0.05)",
+            "",
+            "Same paired bootstrap streams as the v1.0.0 engine (per-pair fresh",
+            "seed-42 streams); two-sided add-one bootstrap p-values; Holm-adjusted",
+            "across the 6-pair family.",
+            "",
+            "| a | b | diff | p_raw | p_holm | reject_holm_05 |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+        for pair in suite["pairwise_holm"]["pairs"]:
+            lines.append(
+                f"| {pair['a']} | {pair['b']} | {pair['diff']:.4f} "
+                f"| {pair['p_value_add_one']:.4f} | {pair['p_holm_adjusted']:.4f} "
+                f"| {pair['reject_holm_05']} |"
+            )
+        n_rej = suite["pairwise_holm"]["n_reject_holm_05"]
+        lines += [
+            "",
+            f"**Holm verdict: {n_rej} of 6 pairwise differences survive family-wise"
+            f" correction at 0.05.**",
+            "",
+        ]
+    if "levels_and_ranks" in suite:
+        lv = suite["levels_and_ranks"]
+        lines += [
+            "## Level CIs for each strategy's OOS Sharpe (daily convention)",
+            "",
+            f"Point estimate and {lv['B']}-resample circular-block percentile CIs",
+            "(block 63 headline; blocks 21/126 in the JSON artifact), seed 42.",
+            "",
+            "| strategy | point | low (b63) | high (b63) | low (b21) | high (b21) "
+            "| low (b126) | high (b126) |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        for s in lv["point_estimates"]:
+            b63 = lv["levels"][s]["63"] if "63" in lv["levels"][s] else None
+            b21 = lv["levels"][s].get("21")
+            b126 = lv["levels"][s].get("126")
+            lines.append(
+                f"| {s} | {lv['point_estimates'][s]:.4f} | {b63['ci_low']:.4f} "
+                f"| {b63['ci_high']:.4f} | {b21['ci_low']:.4f} | {b21['ci_high']:.4f} "
+                f"| {b126['ci_low']:.4f} | {b126['ci_high']:.4f} |"
+            )
+        lines += [
+            "",
+            "Reading rule (pre-registered): an interval that spans another "
+            "strategy's point estimate is evidence the ranking is not identified "
+            "by this sample. Overlapping CIs do NOT imply equality.",
+            "",
+            "## Bootstrap rank frequencies (block 63, pooled over resamples)",
+            "",
+            "| strategy | rank 1 | rank 2 | rank 3 | rank 4 |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for s, freqs in lv["rank_frequencies"].items():
+            lines.append(
+                f"| {s} | {freqs['1']:.3f} | {freqs['2']:.3f} | {freqs['3']:.3f} "
+                f"| {freqs['4']:.3f} |"
+            )
+        lines += [
+            "",
+            f"Rank-1 counts (of {lv['B']} resamples): "
+            + ", ".join(f"{s} = {c}" for s, c in lv["rank1_counts"].items())
+            + ".",
+            "",
+        ]
+    if "subwindow_stability" in suite:
+        sw = suite["subwindow_stability"]
+        lines += [
+            "## Rank stability across time (7 contiguous 252-day windows)",
+            "",
+            f"Adjacent-window Kendall tau: {sw['adjacent_kendall_tau']}",
+            "",
+            f"Mean adjacent tau = {sw['mean_adjacent_kendall_tau']}; rank-1 counts "
+            f"per window: {sw['rank1_counts']}.",
+            "",
+        ]
+    if "cost_sensitivity" in suite:
+        cs = suite["cost_sensitivity"]
+        lines += [
+            "## Cost-assumption sensitivity (RQ3, true net-of-cost engine)",
+            "",
+            f"Grid: {cs['grid']} bps. Mean daily net return is exactly affine in "
+            "cost with slope -sum(turnover)/(1e4*n) per strategy (pinned by "
+            "tests); net Sharpe is NOT affine and no such claim is made.",
+            "",
+            "| strategy | Sharpe@0bps | Sharpe@10bps | Sharpe@50bps | Sharpe@100bps "
+            "| turnover/reb |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+        rows = cs["rows"]
+        by_strategy: dict[str, dict[float, dict]] = {}
+        for row in rows:
+            by_strategy.setdefault(row["strategy"], {})[row["cost_bps"]] = row
+        for s, per_cost in by_strategy.items():
+            def _g(cost: float, _pc: dict = per_cost) -> dict:
+                return _pc.get(cost, {})
+
+            lines.append(
+                f"| {s} | {_g(0.0).get('sharpe_net_dailyconv', float('nan')):.4f} "
+                f"| {_g(10.0).get('sharpe_net_dailyconv', float('nan')):.4f} "
+                f"| {_g(50.0).get('sharpe_net_dailyconv', float('nan')):.4f} "
+                f"| {_g(100.0).get('sharpe_net_dailyconv', float('nan')):.4f} "
+                f"| {_g(10.0).get('avg_turnover', float('nan')):.4f} |"
+            )
+        lines += [""]
+    if "half_split_exploratory" in suite:
+        hs = suite["half_split_exploratory"]
+        lines += [
+            "## First vs second half (EXPLORATORY — fragility check only)",
+            "",
+            "| strategy | H1 Sharpe | H1 95% CI | H2 Sharpe | H2 95% CI |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for s, halves in hs["per_strategy"].items():
+            h1, h2 = halves["half1"], halves["half2"]
+            lines.append(
+                f"| {s} | {h1['sharpe']:.4f} | [{h1['ci_low']:.4f}, {h1['ci_high']:.4f}] "
+                f"| {h2['sharpe']:.4f} | [{h2['ci_low']:.4f}, {h2['ci_high']:.4f}] |"
+            )
+        lines += [
+            "",
+            "Registered label: EXPLORATORY. No regime definition and no "
+            "regime-robustness claim is made from this output.",
+            "",
+        ]
+    if "placebo_summary" in suite:
+        ps = suite["placebo_summary"]
+        lines += [
+            "## Placebo simulation (RQ5, evaluation-design noise calibration)",
+            "",
+            f"M = {ps['M']} synthetic worlds (registered DGP: i.i.d. Gaussian with "
+            "the full-sample Ledoit–Wolf estimates; oracle = constrained tangency "
+            f"optimal for this DGP by construction). MC SE on proportions ≈ "
+            f"{ps['mc_se_proportion_p50']:.2f} at p = 0.5.",
+            "",
+            f"- P(oracle ranks first in a world) = {ps['P_oracle_rank1']}",
+            f"- Oracle rank counts: {ps['oracle_rank_counts']}",
+            f"- P(equal weight beats the oracle) = {ps['P_ew_beats_oracle']}",
+            f"- Best among the 4 re-estimating strategies: {ps['best_among_4_counts']}",
+            f"- Real pairwise diffs inside the placebo distribution (percentile): "
+            f"{ps['real_diff_percentile_in_placebo']}",
+            "",
+        ]
+    else:
+        lines += [
+            "## Placebo simulation (RQ5)",
+            "",
+            "NOT RUN in this invocation (no per-world records supplied). The",
+            "registered engine and resumable chunk-wise runner are in",
+            "`uncertainty.py`; `reports/placebo_simulation.json` is written only",
+            "from persisted per-world records.",
+            "",
+        ]
+    lines += [
         "## Caveats",
         "",
         "- Mean–variance inputs are estimated, not known: in-sample Sharpe ratios are",
