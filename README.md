@@ -76,6 +76,19 @@ measures what the optimizers actually deliver.
    sensitivity at 21 and 126 days. Blocks are used because daily OOS returns are
    serially dependent (fixed 63-day weights, volatility clustering), which invalidates
    an IID bootstrap.
+7. **Uncertainty-aware evaluation (Phase 2, pre-registered)** — beyond pairwise
+   differences: *level* CIs for each strategy's OOS Sharpe (daily convention),
+   bootstrap rank frequencies, **Holm-corrected** inference across the 6 pairwise
+   comparisons (family-wise α = 0.05), rank stability across 7 contiguous 252-day
+   windows (Kendall τ), a transaction-cost sensitivity grid on the true net engine
+   (0/10/25/50/75/100 bps), an exploratory first-vs-second-half split, and a
+   100-world placebo simulation that scores a by-construction-optimal *oracle*
+   tangency portfolio through the same walk-forward machinery to calibrate how much
+   rank noise the evaluation design itself carries. Registered in
+   `docs/admissions/PHASE2-RESEARCH-PLAN.md` BEFORE any implementation (seeds:
+   bootstrap 42, placebo world i = 43 + i; the plan's exactness claims — affine mean
+   net return in cost, bitwise net == gross at 0 bps, turnover invariance — are
+   pinned by unit tests; net Sharpe is explicitly NOT claimed affine).
 
 ## 6 · Dataset
 
@@ -145,7 +158,14 @@ window itself is controlled by `scripts/download_data.py`.
 - **Sharpe degradation** = OOS net Sharpe − in-sample Sharpe per strategy.
 - **Average turnover and total transaction costs** per strategy.
 - **Ledoit–Wolf shrinkage intensity** (full sample and per walk-forward window).
-- **Bootstrap 95% CIs for pairwise Sharpe differences** (circular blocks).
+- **Bootstrap 95% CIs for pairwise Sharpe differences** (circular blocks) with
+  **Holm step-down adjustment** across the 6-pair family (the registered
+  multiplicity-safe procedure; per-pair flags are unadjusted statements only).
+- **Phase 2 additions:** per-strategy level CIs, bootstrap rank frequencies,
+  adjacent-window Kendall τ, cost-grid sensitivity, exploratory half split,
+  placebo oracle-rank distribution (all in `reports/uncertainty.json`,
+  `reports/placebo_simulation.json`, `reports/cost_sensitivity.csv`,
+  `reports/rank_stability.csv`).
 
 ## 12 · Results
 
@@ -176,65 +196,148 @@ rebalance-day return); gross figures are shown for reference.
 14.3% return / 17.2% vol. Full-sample shrinkage intensity 0.015 (walk-forward
 windows: mean 0.072, range 0.031–0.158).
 
-**Pairwise Sharpe differences — paired circular-block bootstrap 95% CIs** (OOS daily
-net returns; B = 2000, block = 63 days, seed 42):¹
+**Pairwise Sharpe differences — paired circular-block bootstrap 95% CIs, Holm-corrected**
+(OOS daily net returns; B = 2000, block = 63 days, seed 42; two-sided add-one
+bootstrap p-values; Holm step-down across the 6-pair family, FWER α = 0.05):¹
 
-| a − b | diff | 95% CI | Significant at 95%? |
-| --- | --- | --- | --- |
-| Equal weight − min variance | +0.268 | [−0.058, +0.610] | No |
-| Equal weight − max Sharpe | +0.050 | [−0.294, +0.497] | No |
-| Equal weight − risk parity | +0.023 | [−0.105, +0.133] | No |
-| Min variance − max Sharpe | −0.218 | [−0.495, +0.080] | No |
-| **Min variance − risk parity** | **−0.245** | **[−0.499, −0.034]** | **Yes** |
-| Max Sharpe − risk parity | −0.027 | [−0.426, +0.253] | No |
+| a − b | diff | 95% CI | p (raw) | p (Holm-adj) | Reject at FWER 0.05? |
+| --- | --- | --- | --- | --- | --- |
+| Equal weight − min variance | +0.268 | [−0.058, +0.610] | 0.096 | 0.480 | No |
+| Equal weight − max Sharpe | +0.050 | [−0.294, +0.497] | 0.812 | 1.000 | No |
+| Equal weight − risk parity | +0.023 | [−0.105, +0.133] | 0.734 | 1.000 | No |
+| Min variance − max Sharpe | −0.218 | [−0.495, +0.080] | 0.153 | 0.612 | No |
+| Min variance − risk parity | −0.245 | [−0.499, −0.034] | 0.025 | 0.150 | **No** |
+| Max Sharpe − risk parity | −0.026 | [−0.426, +0.253] | 0.873 | 1.000 | No |
 
-¹ Sensitivity to the block length: the min-variance − risk-parity interval stays
-negative at block 21 ([−0.503, −0.011]) and block 126 ([−0.509, −0.072]); the
-equal-weight − min-variance interval turns (barely) positive only at block 126
-([+0.017, +0.601]) — read conclusions across all three block lengths, stored in
-`reports/optimization_results.json` under `sharpe_diff_bootstrap`.
+¹ **Multiplicity correction changes the headline.** The v1.0.0 release flagged
+min-variance − risk parity as "significant at 95%" — that was an UNADJUSTED
+per-pair CI statement. Under the registered Holm family (6 comparisons),
+**0 of 6** pairwise differences reject at family-wise α = 0.05 (the smallest
+adjusted p is 0.150 for min-variance − risk parity). Block-length sensitivity
+for that pair: the raw interval stays negative at block 21 ([−0.503, −0.011])
+and block 126 ([−0.509, −0.072]), but raw-interval negativity is not a
+multiplicity-safe claim and none is made.
+
+### Phase 2 results: uncertainty-aware evaluation (pre-registered)
+
+All statistics below are computed on the same OOS daily NET series; Sharpes in
+this subsection use the **daily convention** `√252·mean/std`, which differs
+numerically from the annualized-geometric convention in the tables above (both
+are disclosed; see §14).
+
+**Level CIs per strategy (B = 2000, block 63, seed 42)** — an interval that
+spans another strategy's point estimate is evidence the ranking is not
+identified by this sample (pre-registered reading rule):
+
+| Strategy | Point | 95% CI (block 63) | 95% CI (block 21) | 95% CI (block 126) |
+| --- | --- | --- | --- | --- |
+| Equal weight | +0.922 | [+0.336, +1.723] | [+0.259, +1.730] | [+0.406, +1.703] |
+| Min variance | +0.654 | [+0.074, +1.399] | [−0.011, +1.461] | [+0.199, +1.287] |
+| Max Sharpe | +0.872 | [+0.334, +1.582] | [+0.273, +1.625] | [+0.429, +1.446] |
+| Risk parity | +0.898 | [+0.309, +1.699] | [+0.232, +1.733] | [+0.396, +1.665] |
+
+Every interval spans every other strategy's point estimate: the OOS ranking is
+**not identified** by this sample.
+
+**Bootstrap rank frequencies (block 63, pooled over B = 2000 resamples):**
+rank-1 shares — equal weight 0.460, max Sharpe 0.381, risk parity 0.159,
+min variance 0.000. No strategy ranks first in even half of the resamples;
+even the naive benchmark fails to rank first 54% of the time, and min
+variance is essentially never first.
+
+**Rank stability across time (7 contiguous 252-day windows):** adjacent-window
+Kendall τ = [0.667, 0.000, −1.000, −0.667, 1.000, 0.000]; mean τ = 0.000.
+Rank-1 counts: equal weight 3/7, max Sharpe 3/7, risk parity 1/7, min variance
+0/7. The cross-sectional ranking does NOT persist through time.
+
+**Cost-assumption sensitivity (0/10/25/50/75/100 bps, true net engine):**
+mean daily net return is exactly affine in cost with the registered slope
+`−Σturnover/(10⁴·n)` per strategy (unit-tested); turnover paths are invariant
+to cost (weights never depend on cost — unit-tested); at 0 bps the net series
+equals the gross series bitwise (unit-tested). The ordering equal weight >
+risk parity > max Sharpe > min variance (daily-convention net Sharpe) holds at
+every grid point — no two curves cross anywhere on [0, 100] bps. Max Sharpe,
+the highest-turnover strategy, loses ≈0.12 Sharpe across the full 100 bps
+range (≈0.03 per 25 bps), roughly 6× risk parity's ≈0.02 and ~19× equal
+weight's ≈0.006. Net Sharpe is NOT affine in cost and no such claim is made
+anywhere.
+
+**First vs second OOS half (EXPLORATORY — fragility check only):** every
+strategy's daily-convention Sharpe is HIGHER in the second half (equal weight
++0.771 → +1.230; max Sharpe +0.810 → +1.054; risk parity +0.754 → +1.230;
+min variance +0.529 → +0.933), with heavily overlapping CIs across halves.
+Registered label: exploratory; this is a fragility check only and supports no
+regime-robustness claim in either direction.
+
+**Placebo simulation (100 worlds, seeds 43 + i):** synthetic i.i.d. Gaussian
+worlds generated from the project's own full-sample Ledoit–Wolf estimates, in
+which a constrained *oracle* tangency portfolio is optimal **by construction**
+and is scored through the identical walk-forward machinery alongside the four
+re-estimating strategies. Result: the oracle ranks first in only **53 of 100**
+worlds (rank 2: 19, rank 3: 13, rank 4: 11, rank 5: 4); equal weight beats the
+oracle in 28% of worlds; the best of the four re-estimating strategies is
+equal weight in 46, min variance in 19, risk parity in 18, max Sharpe in 17
+worlds. The real pairwise diffs fall at the 68th (EW − MS) and 80th (MV − RP)
+percentiles of the placebo distributions of the same statistic — well inside
+the noise a single 1,890-day OOS realization can produce. Monte Carlo SE on
+proportions ≈ 0.05 at p = 0.5. Disclosed circularity: the DGP is Gaussian i.i.d.
+by registration — it isolates evaluation-design rank noise, not all real-world
+noise (fat tails, clustering, regimes are not reproduced).
 
 Figures: [`efficient_frontier.png`](figures/efficient_frontier.png) (frontier, assets
 and special portfolios), [`oos_cumulative.png`](figures/oos_cumulative.png) (growth of
 $1, log scale, net of costs), [`oos_drawdowns.png`](figures/oos_drawdowns.png),
-[`weights_history.png`](figures/weights_history.png) (weights at every rebalance).
+[`weights_history.png`](figures/weights_history.png) (weights at every rebalance),
+plus the Phase-2 figures [`sharpe_level_cis.png`](figures/sharpe_level_cis.png),
+[`rank_frequencies.png`](figures/rank_frequencies.png),
+[`cost_sensitivity.png`](figures/cost_sensitivity.png),
+[`placebo_rank_dist.png`](figures/placebo_rank_dist.png).
 
 ## 13 · Interpretation
 
-1. **The naive benchmark still finishes first — but not by a measurable margin.**
+1. **The naive benchmark still finishes first — and no gap is measurable.**
    Equal weight delivers the best OOS net Sharpe (1.005), replicating in this sample
-   the central result of DeMiguel, Garlappi & Uppal (2009). Yet the block-bootstrap
-   CIs say its edge over max-Sharpe (+0.050) and risk parity (+0.023) is NOT
-   statistically distinguishable from zero; only risk parity vs min-variance is a
-   significant gap.
+   the central result of DeMiguel, Garlappi & Uppal (2009). Under the registered
+   Holm family, **0 of 6** pairwise differences reject at family-wise α = 0.05 —
+   including the min-variance vs risk-parity gap that the v1.0.0 release flagged
+   as significant on an UNADJUSTED per-pair interval (raw p = 0.025, Holm-adjusted
+   p = 0.150). The defensible reading is that this sample identifies no ranking.
 2. **Fixing the optimizer changed the max-Sharpe story.** The previous release
    accepted a clipped closed-form tangency (suboptimal whenever clipping changed the
    solution). With the corrected solver — closed form only when feasible as-is,
-   otherwise frontier scan + ternary refinement (used in all 32 real-data solves;
-   the closed form was never cap-feasible) — max-Sharpe's gross OOS Sharpe rises
-   0.876 → 0.971 and net of its 1.86% cost drag it delivers 0.957, close to its
-   0.906 in-sample promise. This is a period effect (the OOS window favored equities),
-   not evidence of robust skill: the estimation-error warning stands, but the old
-   numbers understate what a correct optimizer delivers.
+   otherwise frontier scan + ternary refinement (used in all real-data solves) —
+   max-Sharpe's gross OOS Sharpe rises 0.876 → 0.971 and net of its 1.86% cost drag
+   it delivers 0.957, close to its 0.906 in-sample promise. This is a period effect
+   (the OOS window favored equities — every strategy's Sharpe is higher in the
+   second half), not evidence of robust skill; and its edge over the naive
+   benchmark is not statistically distinguishable (Holm-adjusted p = 1.000).
 3. **Min-variance does its job but is not free.** It realizes the lowest OOS
-   volatility (16.6%) exactly as designed, at the cost of the lowest return; its net
-   Sharpe slips just below its in-sample value (0.695 → 0.691) — the covariances it
-   relies on are estimable, but its Sharpe is the only one that degrades, and the
-   bootstrap marks it significantly worse than risk parity.
-4. **Risk parity is the robust middle.** OOS net Sharpe 0.972 with low turnover
-   (0.089) and costs (0.27%), no reliance on the mean vector, and — per the bootstrap
-   — the only strategy significantly ahead of min-variance across all block lengths.
+   volatility (16.6%) exactly as designed, at the cost of the lowest return; its
+   net Sharpe slips just below its in-sample value (0.695 → 0.691). The v1.0.0
+   release's unadjusted flag on the min-variance vs risk-parity gap (raw p =
+   0.025) does not survive the registered Holm correction (adjusted p = 0.150);
+   the Phase-2 level CIs and rank frequencies (min variance ranks first in ~0.1%
+   of resamples, last in 94%) describe its position without a significance claim.
+4. **Risk parity is the robust middle — described, not "significant".** OOS net
+   Sharpe 0.972 with low turnover (0.089) and costs (0.27%) and no reliance on the
+   mean vector. Under Holm it is not separable from any other strategy in this
+   sample; the honest statement is about its cost/turnover profile and mean
+   independence, not a significance ranking.
 5. **Costs matter at rebalancing frequency — now measurably.** Max-Sharpe's 0.619
    average one-way turnover per quarter costs 1.86% cumulatively (≈0.30%/yr including
    lost compounding), versus 0.10% for equal weight. That drag is the difference
-   between gross 0.971 and net 0.957 — material relative to the (statistically
-   insignificant) gaps between strategies.
-6. **Statistical vs economic significance.** A CI excluding zero is a statement
-   about sampling noise only. The one significant difference (risk parity over
-   min-variance, ≈0.25 Sharpe) is also economically meaningful (lower vol, higher
-   return, lower turnover); the insignificant equal-weight lead is achieved with the
-   least turnover, so the defensible practical conclusion is “nothing beats 1/n
-   convincingly, and cheaper strategies do not lose anything measurable”.
+   between gross 0.971 and net 0.957 — material relative to the (Holm-insignificant)
+   gaps between strategies, and visible across the whole cost grid: max Sharpe's
+   net Sharpe falls ≈0.12 from 0 to 100 bps while equal weight loses ≈0.006, with
+   no ordering change anywhere on the grid.
+6. **Statistical significance, economic significance, and uncertainty are
+   reported separately.** No pairwise claim survives multiplicity correction; the
+   level CIs are as wide as the quoted gaps; the placebo shows a by-construction
+   optimal portfolio ranks first in only 53% of synthetic realizations of this
+   exact design. The practical conclusion stands but is now properly calibrated:
+   nothing beats 1/n convincingly in this sample, cheaper strategies do not lose
+   anything measurable, and single-realization rankings of this design carry
+   enough rank noise to overturn even a genuinely optimal strategy.
 
 ## 14 · Limitations
 
@@ -258,6 +361,23 @@ $1, log scale, net of costs), [`oos_drawdowns.png`](figures/oos_drawdowns.png),
 - **CAPM-era assumptions.** No factor models (Black–Litterman, robust Bayes, HRP) —
   future work.
 - **Log-return annualization** approximates arithmetic compounding.
+- **Two Sharpe conventions coexist (disclosed).** The performance tables use the
+  annualized geometric convention (exp-growth return / scaled vol); the Phase-2
+  bootstrap statistics use the daily convention `√252·mean/std`. They differ
+  numerically (e.g. equal weight 1.005 vs 0.922); each is used consistently within
+  its own section and never mixed.
+- **Overlapping CIs ≠ equality.** Non-overlapping CIs would imply a difference,
+  but overlapping CIs do not imply equality; the registered formal check is the
+  Holm-adjusted pairwise family, which rejects 0 of 6.
+- **Placebo DGP circularity (registered).** The placebo's synthetic worlds are
+  Gaussian i.i.d. draws from the project's own full-sample Ledoit–Wolf estimates:
+  they deliberately do NOT reproduce fat tails, volatility clustering, or regime
+  persistence. The resulting oracle-rank distribution calibrates **evaluation-design
+  rank noise**, not all real-world noise; its outputs never mix with the real-data
+  headline table.
+- **Multiplicity.** No multiple-testing protection is claimed beyond the registered
+  Holm family over the 6 pairwise Sharpe differences; exploratory outputs (the
+  half split) are labeled as such and support no claims.
 
 ## 15 · Reproducibility
 
@@ -269,13 +389,16 @@ pip install -e .[dev]
 # 2) data (network, then cached)
 python scripts/download_data.py
 
-# 3) full study (~1 min; deterministic)
+# 3) full study + uncertainty suite (~5 min; deterministic)
 python scripts/run_optimization.py
 
-# 4) verify: lint + 30 offline tests (incl. window-disjointness and an
-#    optimality regression vs the exact capped tangency)
+# 3b) placebo (registered engine; resumable chunk-wise, ~9 s/world)
+#     see docs/admissions/PHASE2-VALIDATION-REPORT.md §8 for the exact runner
+
+# 4) verify: lint + 47 offline tests + doc/artifact consistency checks
 ruff check .
 pytest -q
+python scripts/verify_docs.py
 ```
 
 ## 16 · Installation
@@ -330,8 +453,9 @@ Reading the risk-parity column (the worked example):
 - high-volatility names (AAPL 10.9%, AMZN 11.4%) receive the smallest weights
   despite strong returns — equalizing *risk contribution*, not capital;
 - the resulting OOS net Sharpe (0.972) is within touching distance of equal weight
-  with one-seventh of max-Sharpe's costs — and, per the bootstrap, significantly
-  ahead of min-variance.
+  with one-seventh of max-Sharpe's costs — a descriptive cost/robustness advantage;
+  under the registered Holm family no pairwise gap in this study is statistically
+  separable (see §12–§13).
 
 ## 19 · Project structure
 
@@ -347,16 +471,18 @@ portfolio-optimization-lab/
 │   ├── optimization.py   # min-var, max-Sharpe, risk parity, frontier + solver counters
 │   ├── backtest.py       # walk-forward loop, net-of-cost deduction, in-sample comparison
 │   ├── bootstrap.py      # circular block bootstrap for Sharpe differences
-│   ├── plots.py          # frontier, cumulative growth, drawdowns, weights
+│   ├── uncertainty.py    # PHASE 2: level CIs, Holm family, ranks, cost grid, half split, placebo
+│   ├── plots.py          # frontier, cumulative growth, drawdowns, weights + 4 Phase-2 figures
 │   └── pipeline.py       # orchestration + strict-JSON reports
-├── tests/                # 30 offline tests incl. window-disjointness + optimality regression
+├── tests/                # 47 offline tests incl. engine-agreement (A2) + exact cost claims (A6)
 ├── notebooks/            # frontier & estimation-error walkthrough
-├── scripts/              # download_data.py, run_optimization.py
+├── scripts/              # download_data.py, run_optimization.py, verify_docs.py
 ├── configs/default.yaml
 ├── data/raw · data/processed   # git-ignored caches (.gitkeep tracked)
 ├── reports/              # JSON + CSV results (generated, committed)
-├── figures/              # 4 generated figures (committed)
+├── figures/              # 8 generated figures (committed)
 ├── docs/research_report.md
+├── docs/admissions/      # PHASE2-RESEARCH-PLAN (pre-registered), VALIDATION-REPORT, summaries
 └── .github/workflows/ci.yml
 ```
 
