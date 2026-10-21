@@ -1,0 +1,37 @@
+{
+  "status": "complete",
+  "M": 100,
+  "summary": {
+    "M": 100,
+    "seeds": "43 + i for world i (i = 0..99)",
+    "oracle_rank_counts": {
+      "1": 53,
+      "2": 19,
+      "3": 13,
+      "4": 11,
+      "5": 4
+    },
+    "P_oracle_rank1": 0.53,
+    "P_ew_beats_oracle": 0.28,
+    "best_among_4_counts": {
+      "min_variance": 19,
+      "equal_weight": 46,
+      "risk_parity": 18,
+      "max_sharpe": 17
+    },
+    "pairwise_diff_placebo_mean": {
+      "equal_weight__minus__max_sharpe": 0.101799,
+      "min_variance__minus__risk_parity": -0.117534
+    },
+    "pairwise_diff_placebo_sd": {
+      "equal_weight__minus__max_sharpe": 0.181615,
+      "min_variance__minus__risk_parity": 0.131624
+    },
+    "real_diff_percentile_in_placebo": {
+      "equal_weight__minus__max_sharpe": 68.0,
+      "min_variance__minus__risk_parity": 80.0
+    },
+    "mc_se_proportion_p50": 0.05,
+    "interpretation": "the oracle is optimal for the DGP by construction; every world in which it does not rank first is direct evidence of evaluation-design rank noise in a single OOS realization of this length"
+  }
+}

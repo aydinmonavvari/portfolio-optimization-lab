@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-08T21:11:37.040869+00:00",
+  "generated_at": "2026-10-21T18:55:45.693506+00:00",
   "project": "portfolio-optimization-lab",
   "description": "Mean-variance and risk-parity optimization with shrinkage covariance and a leakage-free walk-forward evaluation, net of transaction costs (educational research project; not investment advice).",
   "config": {
@@ -65,7 +65,7 @@
     },
     {
       "target_return": 0.132505,
-      "volatility": 0.16333
+      "volatility": 0.163329
     },
     {
       "target_return": 0.138036,
@@ -151,12 +151,12 @@
   "asset_stats": {
     "AAPL": {
       "return": 0.243123,
-      "volatility": 0.303657,
+      "volatility": 0.303656,
       "sharpe": 0.800651
     },
     "MSFT": {
       "return": 0.21843,
-      "volatility": 0.289994,
+      "volatility": 0.289993,
       "sharpe": 0.753224
     },
     "JNJ": {
@@ -199,12 +199,12 @@
     "max sharpe": {
       "return": 0.185286,
       "volatility": 0.204496,
-      "sharpe": 0.906062
+      "sharpe": 0.906063
     },
     "risk parity": {
       "return": 0.142979,
       "volatility": 0.172135,
-      "sharpe": 0.83062
+      "sharpe": 0.830621
     }
   },
   "weights_full_sample": {
@@ -219,17 +219,17 @@
     },
     "min_variance": {
       "AAPL": 0.0,
-      "MSFT": 0.042641,
+      "MSFT": 0.042642,
       "JNJ": 0.35509,
-      "JPM": 0.035969,
-      "XOM": 0.127925,
+      "JPM": 0.035968,
+      "XOM": 0.127926,
       "PG": 0.336522,
       "AMZN": 0.101852
     },
     "max_sharpe": {
       "AAPL": 0.330667,
       "MSFT": 0.275937,
-      "JNJ": 0.248552,
+      "JNJ": 0.248551,
       "JPM": 0.082226,
       "XOM": 0.062618,
       "PG": 0.0,
@@ -255,7 +255,7 @@
   "solver_diagnostics": {
     "min_variance_clip_renorm": 0,
     "max_sharpe_closed_form": 0,
-    "max_sharpe_frontier_scan": 32
+    "max_sharpe_frontier_scan": 212
   },
   "performance": [
     {
@@ -264,7 +264,7 @@
       "n_rebalances": 30,
       "ann_return": 0.186913,
       "ann_volatility": 0.1859,
-      "sharpe": 1.00545,
+      "sharpe": 1.005451,
       "ann_return_gross": 0.187072,
       "sharpe_gross": 1.00617,
       "avg_turnover": 0.033333,
@@ -276,9 +276,9 @@
       "n_rebalances": 30,
       "ann_return": 0.114819,
       "ann_volatility": 0.166272,
-      "sharpe": 0.690546,
+      "sharpe": 0.690548,
       "ann_return_gross": 0.115795,
-      "sharpe_gross": 0.696186,
+      "sharpe_gross": 0.696187,
       "avg_turnover": 0.218851,
       "total_costs_pct": 0.656552
     },
@@ -286,11 +286,11 @@
       "strategy": "max_sharpe",
       "oos_days": 1890,
       "n_rebalances": 30,
-      "ann_return": 0.201161,
+      "ann_return": 0.20116,
       "ann_volatility": 0.210213,
-      "sharpe": 0.956938,
+      "sharpe": 0.956937,
       "ann_return_gross": 0.204139,
-      "sharpe_gross": 0.970736,
+      "sharpe_gross": 0.970735,
       "avg_turnover": 0.619201,
       "total_costs_pct": 1.857602
     },
@@ -311,27 +311,27 @@
     {
       "strategy": "equal_weight",
       "in_sample_sharpe": 0.843791,
-      "oos_sharpe_net": 1.00545,
+      "oos_sharpe_net": 1.005451,
       "oos_sharpe_gross": 1.00617,
       "sharpe_degradation": 0.161659
     },
     {
       "strategy": "min_variance",
       "in_sample_sharpe": 0.695022,
-      "oos_sharpe_net": 0.690546,
-      "oos_sharpe_gross": 0.696186,
-      "sharpe_degradation": -0.004476
+      "oos_sharpe_net": 0.690548,
+      "oos_sharpe_gross": 0.696187,
+      "sharpe_degradation": -0.004475
     },
     {
       "strategy": "max_sharpe",
-      "in_sample_sharpe": 0.906062,
-      "oos_sharpe_net": 0.956938,
-      "oos_sharpe_gross": 0.970736,
-      "sharpe_degradation": 0.050876
+      "in_sample_sharpe": 0.906063,
+      "oos_sharpe_net": 0.956937,
+      "oos_sharpe_gross": 0.970735,
+      "sharpe_degradation": 0.050874
     },
     {
       "strategy": "risk_parity",
-      "in_sample_sharpe": 0.83062,
+      "in_sample_sharpe": 0.830621,
       "oos_sharpe_net": 0.972329,
       "oos_sharpe_gross": 0.974535,
       "sharpe_degradation": 0.141708
@@ -348,27 +348,27 @@
       {
         "a": "equal_weight",
         "b": "min_variance",
-        "diff": 0.268067,
+        "diff": 0.268066,
         "ci_low": -0.057788,
-        "ci_high": 0.610028,
+        "ci_high": 0.61003,
         "significant_95": false,
         "sensitivity": {
           "21": {
-            "ci_low": -0.085417,
-            "ci_high": 0.631585
+            "ci_low": -0.085419,
+            "ci_high": 0.631587
           },
           "126": {
-            "ci_low": 0.017083,
-            "ci_high": 0.600843
+            "ci_low": 0.017082,
+            "ci_high": 0.600842
           }
         }
       },
       {
         "a": "equal_weight",
         "b": "max_sharpe",
-        "diff": 0.049847,
+        "diff": 0.049848,
         "ci_low": -0.294372,
-        "ci_high": 0.497029,
+        "ci_high": 0.497031,
         "significant_95": false,
         "sensitivity": {
           "21": {
@@ -377,7 +377,7 @@
           },
           "126": {
             "ci_low": -0.267474,
-            "ci_high": 0.51878
+            "ci_high": 0.518783
           }
         }
       },
@@ -385,7 +385,7 @@
         "a": "equal_weight",
         "b": "risk_parity",
         "diff": 0.023394,
-        "ci_low": -0.105006,
+        "ci_low": -0.105005,
         "ci_high": 0.132751,
         "significant_95": false,
         "sensitivity": {
@@ -394,7 +394,7 @@
             "ci_high": 0.14198
           },
           "126": {
-            "ci_low": -0.074524,
+            "ci_low": -0.074525,
             "ci_high": 0.115132
           }
         }
@@ -402,18 +402,18 @@
       {
         "a": "min_variance",
         "b": "max_sharpe",
-        "diff": -0.21822,
-        "ci_low": -0.494795,
-        "ci_high": 0.079553,
+        "diff": -0.218218,
+        "ci_low": -0.494791,
+        "ci_high": 0.079556,
         "significant_95": false,
         "sensitivity": {
           "21": {
-            "ci_low": -0.554781,
-            "ci_high": 0.145727
+            "ci_low": -0.55478,
+            "ci_high": 0.145729
           },
           "126": {
-            "ci_low": -0.448729,
-            "ci_high": 0.054156
+            "ci_low": -0.448727,
+            "ci_high": 0.054157
           }
         }
       },
@@ -427,29 +427,29 @@
         "sensitivity": {
           "21": {
             "ci_low": -0.503093,
-            "ci_high": -0.01109
+            "ci_high": -0.011089
           },
           "126": {
-            "ci_low": -0.508704,
-            "ci_high": -0.071809
+            "ci_low": -0.508705,
+            "ci_high": -0.071807
           }
         }
       },
       {
         "a": "max_sharpe",
         "b": "risk_parity",
-        "diff": -0.026453,
-        "ci_low": -0.426024,
-        "ci_high": 0.252741,
+        "diff": -0.026454,
+        "ci_low": -0.426026,
+        "ci_high": 0.25274,
         "significant_95": false,
         "sensitivity": {
           "21": {
-            "ci_low": -0.379585,
-            "ci_high": 0.282403
+            "ci_low": -0.379586,
+            "ci_high": 0.282401
           },
           "126": {
-            "ci_low": -0.457391,
-            "ci_high": 0.251557
+            "ci_low": -0.457395,
+            "ci_high": 0.251556
           }
         }
       }

@@ -49,6 +49,88 @@ excludes 0 (statistical, not economic, significance).
 | min_variance | risk_parity | -0.2447 | -0.4990 | -0.0340 | True |
 | max_sharpe | risk_parity | -0.0265 | -0.4260 | 0.2527 | False |
 
+NOTE on the flag column: `significant_95` is UNADJUSTED (per-pair CI statement only). The registered multiplicity-safe reading is the Holm family below — no pairwise claim may be quoted without its Holm column.
+
+## Pairwise differences, multiplicity-safe (Holm step-down, FWER 0.05)
+
+Same paired bootstrap streams as the v1.0.0 engine (per-pair fresh
+seed-42 streams); two-sided add-one bootstrap p-values; Holm-adjusted
+across the 6-pair family.
+
+| a | b | diff | p_raw | p_holm | reject_holm_05 |
+| --- | --- | --- | --- | --- | --- |
+| equal_weight | min_variance | 0.2681 | 0.0960 | 0.4798 | False |
+| equal_weight | max_sharpe | 0.0498 | 0.8116 | 1.0000 | False |
+| equal_weight | risk_parity | 0.0234 | 0.7336 | 1.0000 | False |
+| min_variance | max_sharpe | -0.2182 | 0.1529 | 0.6117 | False |
+| min_variance | risk_parity | -0.2447 | 0.0250 | 0.1499 | False |
+| max_sharpe | risk_parity | -0.0265 | 0.8726 | 1.0000 | False |
+
+**Holm verdict: 0 of 6 pairwise differences survive family-wise correction at 0.05.**
+
+## Level CIs for each strategy's OOS Sharpe (daily convention)
+
+Point estimate and 2000-resample circular-block percentile CIs
+(block 63 headline; blocks 21/126 in the JSON artifact), seed 42.
+
+| strategy | point | low (b63) | high (b63) | low (b21) | high (b21) | low (b126) | high (b126) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| equal_weight | 0.9218 | 0.3363 | 1.7233 | 0.2594 | 1.7304 | 0.4064 | 1.7030 |
+| min_variance | 0.6537 | 0.0740 | 1.3986 | -0.0115 | 1.4611 | 0.1988 | 1.2873 |
+| max_sharpe | 0.8719 | 0.3339 | 1.5825 | 0.2730 | 1.6251 | 0.4289 | 1.4464 |
+| risk_parity | 0.8984 | 0.3090 | 1.6989 | 0.2324 | 1.7326 | 0.3957 | 1.6645 |
+
+Reading rule (pre-registered): an interval that spans another strategy's point estimate is evidence the ranking is not identified by this sample. Overlapping CIs do NOT imply equality.
+
+## Bootstrap rank frequencies (block 63, pooled over resamples)
+
+| strategy | rank 1 | rank 2 | rank 3 | rank 4 |
+| --- | --- | --- | --- | --- |
+| equal_weight | 0.460 | 0.336 | 0.186 | 0.018 |
+| min_variance | 0.000 | 0.002 | 0.062 | 0.936 |
+| max_sharpe | 0.381 | 0.078 | 0.495 | 0.046 |
+| risk_parity | 0.159 | 0.585 | 0.257 | 0.000 |
+
+Rank-1 counts (of 2000 resamples): equal_weight = 920, min_variance = 0, max_sharpe = 762, risk_parity = 318.
+
+## Rank stability across time (7 contiguous 252-day windows)
+
+Adjacent-window Kendall tau: [0.666667, 0.0, -1.0, -0.666667, 1.0, 0.0]
+
+Mean adjacent tau = 0.0; rank-1 counts per window: {'equal_weight': 3, 'min_variance': 0, 'max_sharpe': 3, 'risk_parity': 1}.
+
+## Cost-assumption sensitivity (RQ3, true net-of-cost engine)
+
+Grid: [0.0, 10.0, 25.0, 50.0, 75.0, 100.0] bps. Mean daily net return is exactly affine in cost with slope -sum(turnover)/(1e4*n) per strategy (pinned by tests); net Sharpe is NOT affine and no such claim is made.
+
+| strategy | Sharpe@0bps | Sharpe@10bps | Sharpe@50bps | Sharpe@100bps | turnover/reb |
+| --- | --- | --- | --- | --- | --- |
+| equal_weight | 0.9224 | 0.9218 | 0.9193 | 0.9162 | 0.0333 |
+| min_variance | 0.6587 | 0.6537 | 0.6334 | 0.6078 | 0.2189 |
+| max_sharpe | 0.8834 | 0.8719 | 0.8257 | 0.7670 | 0.6192 |
+| risk_parity | 0.9002 | 0.8984 | 0.8908 | 0.8813 | 0.0888 |
+
+## First vs second half (EXPLORATORY — fragility check only)
+
+| strategy | H1 Sharpe | H1 95% CI | H2 Sharpe | H2 95% CI |
+| --- | --- | --- | --- | --- |
+| equal_weight | 0.7712 | [0.0163, 1.8771] | 1.2297 | [0.4935, 2.1317] |
+| min_variance | 0.5292 | [-0.2060, 1.6213] | 0.9325 | [0.1814, 1.7681] |
+| max_sharpe | 0.8104 | [0.1460, 1.7886] | 1.0544 | [0.2385, 2.0459] |
+| risk_parity | 0.7542 | [0.0063, 1.8977] | 1.2303 | [0.5179, 2.0634] |
+
+Registered label: EXPLORATORY. No regime definition and no regime-robustness claim is made from this output.
+
+## Placebo simulation (RQ5, evaluation-design noise calibration)
+
+M = 100 synthetic worlds (registered DGP: i.i.d. Gaussian with the full-sample Ledoit–Wolf estimates; oracle = constrained tangency optimal for this DGP by construction). MC SE on proportions ≈ 0.05 at p = 0.5.
+
+- P(oracle ranks first in a world) = 0.53
+- Oracle rank counts: {'1': 53, '2': 19, '3': 13, '4': 11, '5': 4}
+- P(equal weight beats the oracle) = 0.28
+- Best among the 4 re-estimating strategies: {'min_variance': 19, 'equal_weight': 46, 'risk_parity': 18, 'max_sharpe': 17}
+- Real pairwise diffs inside the placebo distribution (percentile): {'equal_weight__minus__max_sharpe': 68.0, 'min_variance__minus__risk_parity': 80.0}
+
 ## Caveats
 
 - Mean–variance inputs are estimated, not known: in-sample Sharpe ratios are
