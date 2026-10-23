@@ -103,6 +103,11 @@ bit-identical to the original download.
 
 Outputs were written to NEW directories only (`reports_phase1/`,
 `figures_phase1/`); nothing under `reports/` or `figures/` was modified.
+Consistent with this project's practice of committing run artifacts, the
+reproduction outputs ARE committed on this branch under `reports_phase1/` and
+`figures_phase1/` so reviewers can verify the comparison without re-running
+(an earlier commit message text said they would stay local — that was
+inaccurate; this note is the correction, made forward-only).
 The placebo simulation was NOT re-run (its persisted per-world records were
 generated under the v1.1.0 convention; re-simulation is out of scope for this
 branch) and is reported as NOT RUN in `reports_phase1/summary.md`.
