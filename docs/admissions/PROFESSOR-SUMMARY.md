@@ -32,5 +32,5 @@ by-construction-optimal oracle tangency portfolio ranks first in only 53 of
 out-of-sample realization of this design carries enough rank noise to
 overturn even a genuinely optimal strategy.
 
-Everything is reproducible: 47 offline tests, 170 CI-enforced
-documentation-versus-artifact checks, seeds fixed in the plan.
+Everything is reproducible: 73 offline test cases (59 test functions),
+170 CI-enforced documentation-versus-artifact checks, seeds fixed in the plan.

@@ -9,6 +9,19 @@ Shipped v1.1.0 artifacts in `reports/` and `figures/` are untouched.
 Every defect below was reproduced with a minimal hand-checked example BEFORE any
 code change (red test), then fixed, then pinned (green test).
 
+**Limitation — the red phase is not replayable as a single post-hoc run.** The
+red tests were written incrementally (item by item, immediately before the
+corresponding fix), not frozen as one module against the untouched engine. The
+final `tests/test_numerical_rigor.py` imports engine helpers that the fixes
+themselves introduced (e.g. `data.simple_returns`), so dropping the finished
+module onto the pre-fix branch fails at collection (ImportError) rather than
+replaying the red results. The red state is therefore documented from the
+development record — 20 of the 23 new tests failed on the pre-fix engine
+exactly as predicted (commit `ee23b4b`) — and cannot be independently
+reproduced today as a single-shot baseline. The tests were left exactly as
+they were written; the green state is independently verifiable: the full
+73-case suite passes on this branch (battery below).
+
 ### A) `max_weight` was checked on the UNNORMALIZED closed-form candidate
 
 `max_sharpe` accepted the closed-form tangency `Σ⁻¹(μ−rf)` when the RAW vector
@@ -124,7 +137,8 @@ Headline comparison (v1.1.0 engine → corrected engine):
 Every change is mechanically explained: simple-vs-log feeding + `log1p`
 annualization shifts all returns; the one-way turnover convention roughly halves
 turnover/costs (initial build-up unchanged); cap decisions now made on
-normalized weights (diagnostics: `max_sharpe_closed_form` 0 → 2 of 212 windows).
+normalized weights (solver diagnostics: `max_sharpe_closed_form` 0 → 2 of
+212 solver calls; the other 210 calls took the frontier-scan branch).
 Registered conclusion unchanged: **0 of 6 pairwise gaps survive Holm correction
 under both engines**; equal weight remains the best OOS net Sharpe.
 

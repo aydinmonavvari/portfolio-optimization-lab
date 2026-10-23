@@ -61,16 +61,27 @@ measures what the optimizers actually deliver.
 3. **Efficient frontier** — minimum-variance portfolios across a target-return grid
    under the same constraints (infeasible targets are reported as `null`).
 4. **Walk-forward backtest** — every `holding_period = 63` trading days, μ and Σ are
-   re-estimated on the trailing 252 days only; weights are built and held for the next
-   63 days. Estimation and evaluation windows are disjoint *by construction* (verified
+   re-estimated on the trailing 252 days only; the resulting target weights are held
+   for the next 63 days. Within a block the daily portfolio return is the fixed-weight
+   product `r @ w` — constant-mix accounting that implicitly restores the block's
+   target mix at the start of every trading day; those intra-block restorations are
+   assumed costless and generate no booked turnover. Rebalance turnover is measured
+   between consecutive target weight vectors (previous block's target → new target).
+   Estimation and evaluation windows are disjoint *by construction* (verified
    by a dedicated unit test that intercepts the estimator and asserts window
    boundaries). The trailing partial 63-day block (61 trading days here) is not used
    out of sample.
 5. **Costs** — 10 bps applied to ONE-WAY turnover at each rebalance (total buys as a
    fraction of portfolio value, `Σ max(Δw, 0)`; the initial build from cash contributes
-   1.0) and **deducted from that day's strategy return**; every headline metric
-   (return, volatility, Sharpe, drawdowns, cumulative growth) is therefore net of
-   costs, with gross metrics reported alongside for reference.
+   1.0) and **deducted from that day's strategy return**. A fully invested rebalance
+   sells exactly what it buys (`Σ max(Δw, 0) = Σ max(−Δw, 0)`), so charging `cost_bps`
+   per unit of one-way turnover is equivalent to a per-side rate of `cost_bps/2` on
+   each of the two traded legs — the quoted rate applies to one side of the volume,
+   not to both sides. The initial portfolio construction is not a separate fee: the
+   pre-trade position is cash (`w_prev = 0`), so its one-way turnover is `Σ w = 1.0`
+   and it pays through the same cost line as every later rebalance. Every headline
+   metric (return, volatility, Sharpe, drawdowns, cumulative growth) is therefore net
+   of costs, with gross metrics reported alongside for reference.
 6. **Uncertainty** — paired circular-block bootstrap (Politis & Romano 1994) 95%
    percentile CIs for every pairwise Sharpe *difference* on OOS daily net returns:
    B = 2000, block = 63 days (the holding period), seed 42, with block-length
@@ -409,7 +420,7 @@ python scripts/run_optimization.py
 # 3b) placebo (registered engine; resumable chunk-wise, ~9 s/world)
 #     see docs/admissions/PHASE2-VALIDATION-REPORT.md §8 for the exact runner
 
-# 4) verify: lint + 47 offline tests + doc/artifact consistency checks
+# 4) verify: lint + 73 offline test cases (59 test functions) + doc/artifact consistency checks
 ruff check .
 pytest -q
 python scripts/verify_docs.py
@@ -488,7 +499,7 @@ portfolio-optimization-lab/
 │   ├── uncertainty.py    # PHASE 2: level CIs, Holm family, ranks, cost grid, half split, placebo
 │   ├── plots.py          # frontier, cumulative growth, drawdowns, weights + 4 Phase-2 figures
 │   └── pipeline.py       # orchestration + strict-JSON reports
-├── tests/                # 47 offline tests incl. engine-agreement (A2) + exact cost claims (A6)
+├── tests/                # 73 offline test cases (59 test functions) incl. engine-agreement (A2) + exact cost claims (A6)
 ├── notebooks/            # frontier & estimation-error walkthrough
 ├── scripts/              # download_data.py, run_optimization.py, verify_docs.py
 ├── configs/default.yaml

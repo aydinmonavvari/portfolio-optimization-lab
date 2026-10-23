@@ -1,10 +1,15 @@
 """Walk-forward out-of-sample evaluation of portfolio strategies.
 
 At each rebalance date ``t`` the estimators see ONLY the trailing
-``estimation_window`` trading days; the resulting weights are then held for
-the following ``holding_period`` days and scored on returns realized *after*
-``t``. Estimation and evaluation windows are therefore strictly disjoint by
-construction — a property covered by unit tests.
+``estimation_window`` trading days; the resulting target weights are then
+held for the following ``holding_period`` days and scored on returns
+realized *after* ``t``. Within a block each day is scored as the
+fixed-weight product ``r @ w`` — constant-mix accounting that implicitly
+restores the block's target mix at the start of every day; those
+intra-block restorations are assumed costless and generate no booked
+turnover (rebalance turnover is measured between consecutive target weight
+vectors). Estimation and evaluation windows are therefore strictly disjoint
+by construction — a property covered by unit tests.
 
 Conventions (Phase 1, stated explicitly):
 
@@ -15,10 +20,14 @@ Conventions (Phase 1, stated explicitly):
   summed simple returns and exponentiated them as if they were log returns).
 - **Transaction costs.** On each rebalance day the ONE-WAY turnover ``t =
   sum(max(w_new - w_prev, 0))`` (total buys as a fraction of portfolio
-  value; the initial build from cash contributes ``sum(w) = 1.0``) pays
-  ``t * cost_bps / 1e4``, deducted from that day's return — the registered
-  convention of ``docs/admissions/PHASE2-RESEARCH-PLAN.md`` and the standard
-  per-side industry definition. Every reported headline metric (annualized
+  value) pays ``t * cost_bps / 1e4``, deducted from that day's return — the
+  registered convention of ``docs/admissions/PHASE2-RESEARCH-PLAN.md``. For
+  a fully invested rebalance, buys equal sells, so ``cost_bps`` per unit of
+  ONE-WAY turnover is equivalent to a per-side rate of ``cost_bps / 2`` on
+  each of the two traded legs (not ``cost_bps`` on both sides). The initial
+  build from cash is not a separate fee: it is the first turnover event
+  (``t = sum(w) = 1.0``) and pays through the same cost line as every later
+  rebalance. Every reported headline metric (annualized
   return, volatility, Sharpe, drawdowns, cumulative growth) is a TRUE
   net-of-cost number. Gross-of-cost metrics are retained as reference
   columns so the cost drag is always visible.
