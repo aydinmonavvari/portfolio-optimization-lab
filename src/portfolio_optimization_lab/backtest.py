@@ -6,12 +6,22 @@ the following ``holding_period`` days and scored on returns realized *after*
 ``t``. Estimation and evaluation windows are therefore strictly disjoint by
 construction — a property covered by unit tests.
 
-Transaction costs are deducted from the strategy returns themselves: on each
-rebalance day the one-way turnover (fraction of the portfolio traded) times
-``cost_bps / 1e4`` is subtracted from that day's return, so every reported
-headline metric (annualized return, volatility, Sharpe, drawdowns, cumulative
-growth) is a TRUE net-of-cost number. Gross-of-cost metrics are retained as
-reference columns so the cost drag is always visible.
+Conventions (Phase 1, stated explicitly):
+
+- **Returns.** The input frame holds daily SIMPLE (fractional) returns; the
+  per-day portfolio return is the exact weighted sum ``r @ w``, and the
+  daily NET series embeds costs in the same units. Annualized returns are
+  geometric: ``exp(sum(log1p(r_t)) / years) - 1`` (before Phase 1 the engine
+  summed simple returns and exponentiated them as if they were log returns).
+- **Transaction costs.** On each rebalance day the ONE-WAY turnover ``t =
+  sum(max(w_new - w_prev, 0))`` (total buys as a fraction of portfolio
+  value; the initial build from cash contributes ``sum(w) = 1.0``) pays
+  ``t * cost_bps / 1e4``, deducted from that day's return — the registered
+  convention of ``docs/admissions/PHASE2-RESEARCH-PLAN.md`` and the standard
+  per-side industry definition. Every reported headline metric (annualized
+  return, volatility, Sharpe, drawdowns, cumulative growth) is a TRUE
+  net-of-cost number. Gross-of-cost metrics are retained as reference
+  columns so the cost drag is always visible.
 """
 
 from __future__ import annotations
@@ -80,23 +90,26 @@ def walk_forward_backtest(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Run the rolling estimation/holding study, net of transaction costs.
 
-    On every rebalance day the one-way turnover ``t`` (fraction of the
-    portfolio traded, as computed below) generates a cost ``t * cost_bps/1e4``
-    which is subtracted from that day's strategy return. All headline metrics
-    are computed on this NET daily series; gross metrics are kept for
-    reference so the cost drag can be quantified.
+    On every rebalance day the ONE-WAY turnover ``t = sum(max(w - w_prev,
+    0))`` (total buys as a fraction of portfolio value; initial build-up from
+    cash = ``sum(w) = 1.0``) generates a cost ``t * cost_bps/1e4`` which is
+    subtracted from that day's strategy return. All headline metrics are
+    computed on this NET daily series; gross metrics are kept for reference
+    so the cost drag can be quantified.
+
+    ``returns`` must be a finite frame of daily SIMPLE returns (values > -1).
 
     Returns
     -------
     daily_returns:
-        DataFrame of out-of-sample daily NET log returns per strategy (indexed
-        by the full out-of-sample date range). Cost drags are embedded in the
-        rebalance-day entries.
+        DataFrame of out-of-sample daily NET simple returns per strategy
+        (indexed by the full out-of-sample date range). Cost drags are
+        embedded in the rebalance-day entries.
     performance:
         Per-strategy summary computed on the NET series: annualized
-        return/volatility, Sharpe, average rebalance turnover and total
-        transaction costs, plus ``ann_return_gross`` / ``sharpe_gross``
-        reference columns computed before cost deduction.
+        return/volatility, Sharpe, average one-way rebalance turnover and
+        total transaction costs, plus ``ann_return_gross`` /
+        ``sharpe_gross`` reference columns computed before cost deduction.
     weights_history:
         One row per (rebalance date, strategy) with the weight vector.
     """
@@ -104,7 +117,13 @@ def walk_forward_backtest(
     if len(returns) < n_needed:
         raise ValueError(f"need >= {n_needed} return rows, got {len(returns)}")
 
-    r = returns.to_numpy()
+    r = returns.to_numpy(dtype=float)
+    if not np.isfinite(r).all():
+        raise ValueError("returns contain non-finite values (NaN or inf)")
+    if (r <= -1.0).any():
+        raise ValueError(
+            "daily simple returns must be > -1 (a price cannot drop below zero)"
+        )
     index = returns.index
     n_assets = returns.shape[1]
     columns = returns.columns
@@ -127,11 +146,10 @@ def walk_forward_backtest(
         for strategy in strategies:
             w = weights_for(strategy, est.mu, est.cov, max_weight)
             gross_block = hold_returns @ w
-            turn = (
-                float(np.abs(w - prev_weights[strategy]).sum())
-                if prev_weights[strategy].sum() > 0
-                else float(np.abs(w).sum())  # initial build-up counts as turnover
-            )
+            # ONE-WAY turnover (registered convention): total buys as a
+            # fraction of portfolio value = sum of positive weight changes.
+            # The initial build from cash (prev = 0) contributes sum(w) = 1.0.
+            turn = float(np.clip(w - prev_weights[strategy], 0.0, None).sum())
             # True cost deduction: the rebalance-day return pays turnover x bps.
             net_block = gross_block.copy()
             net_block[0] -= turn * cost_bps / 1e4
@@ -160,10 +178,15 @@ def walk_forward_backtest(
     for strategy in strategies:
         series = daily_returns[strategy]
         gross_series = gross_returns[strategy]
-        total_log = float(series.sum())
+        # Geometric annualization on the SIMPLE daily series: total log
+        # return = sum(log1p(r_t)). (Before Phase 1 the simple series was
+        # summed directly and exponentiated, i.e. treated as log returns.)
+        total_log = float(np.log1p(series.to_numpy()).sum())
         ann_return = float(np.exp(total_log / years) - 1.0)
         ann_vol = float(series.std(ddof=1) * np.sqrt(periods_per_year))
-        ann_return_gross = float(np.exp(float(gross_series.sum()) / years) - 1.0)
+        ann_return_gross = float(
+            np.exp(float(np.log1p(gross_series.to_numpy()).sum()) / years) - 1.0
+        )
         ann_vol_gross = float(gross_series.std(ddof=1) * np.sqrt(periods_per_year))
         costs_total = float(np.sum(turnover[strategy]) * cost_bps / 1e4)
         sharpe = (ann_return - rf_annual) / ann_vol if ann_vol > 0 else float("nan")

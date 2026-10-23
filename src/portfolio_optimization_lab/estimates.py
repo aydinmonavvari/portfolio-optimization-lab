@@ -16,7 +16,8 @@ class Estimates:
     Attributes
     ----------
     mu:
-        Annualized expected-return estimate (linear, per asset).
+        Annualized expected-return estimate (arithmetic, from daily simple
+        returns, per asset).
     cov_sample:
         Annualized sample covariance matrix (unshrunk).
     cov_shrunk:
@@ -37,29 +38,35 @@ class Estimates:
 
 
 def estimate(
-    log_returns: pd.DataFrame,
+    daily_returns: pd.DataFrame,
     periods_per_year: int = 252,
     use_shrunk: bool = True,
 ) -> Estimates:
-    """Estimate annualized mu and covariance from a log-return window.
+    """Estimate annualized mu and covariance from a daily SIMPLE-return window.
+
+    The engine consumes daily SIMPLE (fractional) returns end to end: the
+    per-day portfolio return is then the exact weighted sum ``r @ w``, cost
+    deductions live in the same units, and cumulative growth is
+    ``(1 + r).prod()``. (Before Phase 1 this function consumed log returns;
+    feeding log returns into a linear portfolio algebra mixed conventions
+    and biased every reported return.)
 
     Notes
     -----
     - Sample covariance is scaled by ``periods_per_year`` for annualization.
     - Ledoit & Wolf (2004) shrinkage pulls the sample covariance toward a
       scaled identity target; the shrinkage intensity is fitted on the data.
-    - The mean vector is annualized *arithmetically* from mean log returns
-      (``mean_log * periods``): this is the standard approximation used in
-      mean–variance practice and is stated rather than hidden.
+    - The mean vector is annualized *arithmetically*
+      (``mean_simple * periods``): the standard mean–variance input.
     """
-    mean_log = log_returns.mean()
-    mu = mean_log * periods_per_year
-    sample = log_returns.cov() * periods_per_year
-    lw = LedoitWolf().fit(log_returns.to_numpy())
+    mean_simple = daily_returns.mean()
+    mu = mean_simple * periods_per_year
+    sample = daily_returns.cov() * periods_per_year
+    lw = LedoitWolf().fit(daily_returns.to_numpy())
     shrunk = pd.DataFrame(
         lw.covariance_ * periods_per_year,
-        index=log_returns.columns,
-        columns=log_returns.columns,
+        index=daily_returns.columns,
+        columns=daily_returns.columns,
     )
     return Estimates(
         mu=mu,

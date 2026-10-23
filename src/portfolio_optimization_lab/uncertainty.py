@@ -313,7 +313,8 @@ def subwindow_stability(
         for s in strategies:
             r = seg[s].to_numpy()
             years = window / periods_per_year
-            ann_ret = float(np.exp(r.sum() / years) - 1.0)
+            # geometric annualization on the simple daily series
+            ann_ret = float(np.exp(np.log1p(r).sum() / years) - 1.0)
             ann_vol = float(r.std(ddof=1) * np.sqrt(periods_per_year))
             row_g[s] = ann_ret / ann_vol if ann_vol > 0 else float("nan")
         window_sharpes_geom.append(row_g)

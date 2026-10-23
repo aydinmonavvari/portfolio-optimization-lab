@@ -15,7 +15,7 @@ from . import plots
 from .backtest import in_sample_stats, walk_forward_backtest, walk_forward_shrinkage
 from .bootstrap import bootstrap_sharpe_differences
 from .config import PROJECT_ROOT, OptConfig
-from .data import load_price_frame, log_returns
+from .data import load_price_frame, simple_returns
 from .estimates import estimate, portfolio_stats
 from .optimization import (
     efficient_frontier,
@@ -77,8 +77,10 @@ def run_pipeline(
     reset_solver_diagnostics()
 
     prices = load_price_frame(config.tickers, config.benchmark, config.raw_dir)
-    # the benchmark is context only; optimization runs on the universe
-    returns = log_returns(prices[list(config.tickers)])
+    # the benchmark is context only; optimization runs on the universe.
+    # Daily SIMPLE returns: the per-day portfolio return is then the exact
+    # weighted sum r @ w (no log-space approximation anywhere downstream).
+    returns = simple_returns(prices[list(config.tickers)])
 
     # ---- 1. in-sample picture on the full sample --------------------------
     full_est = estimate(returns, config.periods_per_year)
