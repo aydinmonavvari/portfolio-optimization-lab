@@ -37,7 +37,7 @@ The repository is the fourth step of a research portfolio progressing from descr
 | --- | --- |
 | Universe | AAPL, MSFT, JNJ, JPM, XOM, PG, AMZN; SPY retained for context only |
 | Prices | Yahoo Finance daily adjusted closes, 2018-01-02 → 2026-10-07 |
-| Sample | 2,203 aligned trading days; daily log returns; 252-day annualization |
+| Sample | 2,203 aligned trading days; daily simple returns; 252-day annualization |
 | Assumptions | `rf = 0.0` (disclosed, configurable); 10 bps per unit turnover |
 
 ## Methodology
@@ -46,7 +46,18 @@ The repository is the fourth step of a research portfolio progressing from descr
 
 **Optimizers.** (i) Minimum variance: SLSQP on the scaled quadratic program. (ii) Maximum Sharpe: the closed-form tangency `Σ⁻¹(μ−rf)` when constraint-inactive; otherwise the tangency point is located on the constrained frontier by a 25-point scan plus ternary refinement — a deliberately robust alternative to direct fractional-program SLSQP, which stalls on this scale. (iii) Risk parity: cyclical coordinate descent with inverse-vol initialization; equality of risk contributions is asserted numerically. (iv) Equal weight: benchmark.
 
-**Walk-forward design.** Rebalance every 63 trading days; estimate on the trailing 252; hold for the next 63; charge 10 bps on one-way turnover. A spy-based unit test asserts each estimation window ends exactly one trading day before its holding period begins.
+**Walk-forward design.** Rebalance every 63 trading days; estimate on the trailing 252; hold for the next 63; charge 10 bps on one-way turnover (`Σ max(Δw, 0)`, initial build-up = 1.0). A spy-based unit test asserts each estimation window ends exactly one trading day before its holding period begins.
+
+> **Convention correction (Phase 1, branch `fix/numerical-rigor`).** The committed
+> v1.1.0 artifacts were produced by an engine that consumed daily LOG returns,
+> annualized by summing the daily series and exponentiating, and charged `Σ|Δw|`
+> (both sides) as "one-way" turnover. The corrected engine consumes simple
+> returns, annualizes geometrically via `Σ log1p(r)`, and charges the registered
+> one-way turnover — turnover/cost figures roughly halve and Sharpes shift
+> (equal-weight OOS net 1.005 → 1.150); artifacts will be regenerated in the next
+> release. Every v1.1.0 number below is stated under the v1.1.0 convention. The
+> registered conclusions are unchanged: 0 of 6 pairwise gaps survive Holm
+> correction under both engines.
 
 **Uncertainty-aware evaluation (Phase 2, pre-registered in `docs/admissions/PHASE2-RESEARCH-PLAN.md` before implementation).** On the same OOS daily net series: per-strategy level confidence intervals and bootstrap rank frequencies (circular blocks, B = 2000, blocks 21/63/126, seed 42); a Holm step-down family over the 6 pairwise Sharpe differences with two-sided add-one bootstrap p-values (FWER α = 0.05); adjacent-252-day-window rank stability (Kendall τ); a transaction-cost grid (0/10/25/50/75/100 bps) re-run through the verified net-of-cost engine with exact registered claims pinned by unit tests (mean net return affine in cost, bitwise net == gross at 0 bps, turnover invariance; net Sharpe is NOT affine and is never claimed to be); an exploratory chronological half split; and a 100-world placebo simulation (per-world seed 43 + i) in which a constrained oracle tangency portfolio — optimal for the simulated data-generating process by construction — is scored through the identical walk-forward machinery to measure the evaluation design's own rank noise.
 
@@ -85,7 +96,7 @@ Computed on the same OOS daily net series; Sharpes below use the daily conventio
 
 1. **1/n is hard to beat — and the gaps are not identified.** Equal weight wins out of sample, replicating DeMiguel et al. (2009) in this sample. Its zero-turnover profile also minimizes cost drag. Under the registered Holm family no pairwise difference is statistically separable, and the level CIs are as wide as the gaps themselves.
 2. **The estimation-error asymmetry is visible — with a corrected solver.** Min-variance depends almost entirely on Σ (estimable) and its Sharpe is essentially unchanged in and out of sample (0.695 → 0.691). Max-Sharpe leans on μ (barely estimable); with the v1.0.0 constrained solver it delivers 0.957 net — close to its 0.906 in-sample promise — but its edge over the naive benchmark is not statistically distinguishable, and the second-half improvement of every strategy marks the period, not skill, as the driver.
-3. **Turnover is a real cost of cleverness.** Max-Sharpe's mean one-way turnover of 0.619 per quarterly rebalance is 19× equal-weight's; cumulative costs (1.86%) exceed the OOS Sharpe gap between max-Sharpe and risk parity, and the cost grid shows max Sharpe losing ≈0.12 net Sharpe from 0 to 100 bps while the ordering of strategies never changes.
+3. **Turnover is a real cost of cleverness.** Max-Sharpe's mean turnover of 0.619 per quarterly rebalance (v1.1.0 engine: `Σ|Δw|`, both sides; one-way equivalent ≈ 0.31) is 19× equal-weight's; cumulative costs (1.86%) exceed the OOS Sharpe gap between max-Sharpe and risk parity, and the cost grid shows max Sharpe losing ≈0.12 net Sharpe from 0 to 100 bps while the ordering of strategies never changes.
 4. **Risk parity's mean-independence pays.** With near-benchmark OOS net Sharpe (0.972), low turnover and no reliance on μ, risk parity is the most robust optimizer in this study — described by its cost and turnover profile rather than by a significance claim, since no pairwise gap survives Holm correction.
 5. **Evaluation noise is itself measurable — and large.** The placebo simulation ranks a by-construction optimal portfolio first in only 53% of synthetic realizations of this exact design. Any single-sample ranking of these strategies — including the headline table above — carries that much rank noise.
 6. **Honest scope.** One bull-dominated window flatters all long-only strategies (note the OOS Sharpe *improvements* for equal weight and risk parity — a period effect, not skill). The structural contrasts (μ-dependence, turnover, stability) are the transferable findings.

@@ -28,6 +28,7 @@ def _cov_from_corr(corr: np.ndarray, vols: np.ndarray) -> pd.DataFrame:
 def test_min_variance_hedges_perfect_negatives():
     """Two equal-vol assets with correlation -1 admit a zero-variance mix."""
     cov = _cov_from_corr(np.array([[1.0, -1.0], [-1.0, 1.0]]), np.array([0.2, 0.2]))
+    cov = pd.DataFrame(cov.to_numpy(), index=["A", "B"], columns=["A", "B"])
     mu = pd.Series([0.05, 0.05], index=["A", "B"])
     w = min_variance(mu, cov)
     assert abs(float(w @ cov.to_numpy() @ w)) < 1e-10

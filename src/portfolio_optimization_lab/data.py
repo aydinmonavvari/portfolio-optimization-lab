@@ -70,3 +70,14 @@ def _validate_prices(prices: pd.DataFrame) -> None:
 def log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     """Daily log returns of a price frame."""
     return np.log(prices).diff().dropna(how="any")
+
+
+def simple_returns(prices: pd.DataFrame) -> pd.DataFrame:
+    """Daily simple (fractional) returns of a price frame.
+
+    Simple returns are the convention consumed by the whole engine: the
+    per-day portfolio return is the exact weighted sum ``r @ w`` (no
+    log-space approximation), cost deductions live in the same units, and
+    cumulative growth is ``(1 + r).prod()``.
+    """
+    return prices.pct_change().dropna(how="any")

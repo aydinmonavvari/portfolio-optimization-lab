@@ -68,8 +68,11 @@ def plot_weights_history(weights_history: pd.DataFrame, title: str):
 
 
 def plot_oos_cumulative(daily_returns: pd.DataFrame, title: str = "Out-of-sample growth of 1"):
-    """Cumulative growth of an initial investment across strategies."""
-    growth = np.exp(daily_returns.cumsum())
+    """Cumulative growth of an initial investment across strategies.
+
+    ``daily_returns`` are daily SIMPLE returns: growth = prod(1 + r_t).
+    """
+    growth = (1.0 + daily_returns).cumprod()
     fig, ax = plt.subplots(figsize=(10, 5))
     for col in growth.columns:
         ax.plot(growth.index, growth[col], lw=1.6, label=col)
@@ -82,13 +85,13 @@ def plot_oos_cumulative(daily_returns: pd.DataFrame, title: str = "Out-of-sample
 
 
 def plot_drawdowns(daily_returns: pd.DataFrame, title: str = "Out-of-sample drawdowns"):
-    """Drawdown curves computed from cumulative log returns."""
+    """Drawdown curves computed from cumulative growth of the simple returns."""
     fig, ax = plt.subplots(figsize=(10, 5))
     for col in daily_returns.columns:
-        cum = daily_returns[col].cumsum()
-        dd = cum - cum.cummax()
+        growth = (1.0 + daily_returns[col]).cumprod()
+        dd = growth / growth.cummax() - 1.0
         ax.plot(dd.index, dd, lw=1.2, label=col)
-    ax.set_ylabel("drawdown (log)")
+    ax.set_ylabel("drawdown")
     ax.set_title(title)
     ax.legend()
     fig.tight_layout()

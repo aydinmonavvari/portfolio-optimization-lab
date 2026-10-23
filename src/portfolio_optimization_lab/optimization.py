@@ -34,6 +34,14 @@ _OBJECTIVE_SCALE = 1.0e3  # bring annualized-variance objectives to O(1)
 _SAFETY_NEG_TOL = 1e-9
 _SAFETY_SUM_TOL = 1e-9
 
+# Postcondition tolerance: after clip/renormalize the finished solution must
+# satisfy every constraint to within this bound or the call FAILS LOUDLY
+# (see _assert_solution_postconditions).
+_POSTCONDITION_TOL = 1e-8
+
+# Budget feasibility tolerance for the n * max_weight >= 1 precondition.
+_BUDGET_TOL = 1e-9
+
 # Counters for solver behaviour that would otherwise be invisible. Mutated in
 # place (never rebound) so module-level state survives resets.
 _SOLVER_DIAGNOSTICS: dict[str, int] = {
@@ -75,6 +83,114 @@ def _bounds(n: int, max_weight: float | None) -> list[tuple[float, float]]:
     return [(0.0, hi)] * n
 
 
+def _check_cap_budget(n: int, max_weight: float | None) -> None:
+    """Fail fast on a constraint set no fully-invested portfolio can satisfy."""
+    if max_weight is not None and n * max_weight < 1.0 - _BUDGET_TOL:
+        raise ValueError(
+            f"infeasible constraint set: {n} assets x max_weight {max_weight} "
+            f"= {n * max_weight:.4f} < 1, so the weights can never sum to 1"
+        )
+
+
+def _validate_market_inputs(
+    mu: pd.Series | None,
+    cov: pd.DataFrame,
+) -> np.ndarray:
+    """Validate shapes, labels, finiteness and PSD-ness; return cov as ndarray.
+
+    Raises ``ValueError`` (never silently mis-optimizes) when:
+    - ``cov`` is not a square DataFrame, or its index and columns disagree;
+    - ``mu`` is supplied and its index does not EXACTLY match ``cov.index``
+      (silent positional alignment once produced an inverted portfolio);
+    - any value of ``mu`` or ``cov`` is non-finite (NaN/inf);
+    - any diagonal entry of ``cov`` is non-positive (zero-variance asset);
+    - ``cov`` is materially asymmetric or not positive semidefinite.
+    """
+    if not isinstance(cov, pd.DataFrame):
+        raise ValueError("cov must be a pandas DataFrame")
+    if cov.ndim != 2 or cov.shape[0] != cov.shape[1]:
+        raise ValueError(f"cov must be square, got shape {cov.shape}")
+    if list(cov.index) != list(cov.columns):
+        raise ValueError(
+            "cov index and columns must be identical labels in the same order"
+        )
+    if mu is not None:
+        if not isinstance(mu, pd.Series):
+            raise ValueError("mu must be a pandas Series")
+        if len(mu) != cov.shape[0]:
+            raise ValueError(
+                f"mu has {len(mu)} entries but cov is {cov.shape[0]}x{cov.shape[0]}"
+            )
+        if list(mu.index) != list(cov.index):
+            raise ValueError(
+                "mu.index does not match cov.index/labels; refusing to align "
+                "silently — reindex mu and cov explicitly before optimizing"
+            )
+    mu_arr = mu.to_numpy(dtype=float) if mu is not None else None
+    if mu_arr is not None and not np.isfinite(mu_arr).all():
+        raise ValueError("mu contains non-finite values (NaN or inf)")
+    sigma = cov.to_numpy(dtype=float)
+    if not np.isfinite(sigma).all():
+        raise ValueError("cov contains non-finite values (NaN or inf)")
+    if (np.diag(sigma) <= 0.0).any():
+        raise ValueError(
+            "covariance has a non-positive diagonal entry (zero-variance asset)"
+        )
+    scale = max(1.0, float(np.abs(sigma).max()))
+    sym_err = float(np.abs(sigma - sigma.T).max())
+    if sym_err > 1e-10 * scale:
+        raise ValueError(
+            f"covariance is not symmetric (max asymmetry {sym_err:.3e})"
+        )
+    min_eig = float(np.linalg.eigvalsh((sigma + sigma.T) / 2.0).min())
+    if min_eig < -1e-10 * scale:
+        raise ValueError(
+            f"covariance is not positive semidefinite (min eigenvalue {min_eig:.3e})"
+        )
+    return sigma
+
+
+def _assert_solution_postconditions(
+    w: np.ndarray,
+    mu_vec: np.ndarray,
+    *,
+    max_weight: float | None,
+    target_return: float | None,
+) -> None:
+    """Raise RuntimeError if a finished solution violates the constraint set.
+
+    Phase-1 hardening (item D): the clip-and-renormalize safety net must never
+    silently return an invalid portfolio. Every constraint is re-checked on
+    the FINAL weight vector; violations beyond tolerance are loud errors, not
+    quiet corrections and not silent acceptance.
+    """
+    total = float(w.sum())
+    if abs(total - 1.0) > _POSTCONDITION_TOL:
+        raise RuntimeError(
+            f"solution postcondition violated: weights sum to {total:.12f}, not 1"
+        )
+    w_min = float(w.min())
+    if w_min < -_POSTCONDITION_TOL:
+        raise RuntimeError(
+            f"solution postcondition violated: min weight {w_min:.3e} < 0"
+        )
+    if max_weight is not None:
+        w_max = float(w.max())
+        if w_max > max_weight + _POSTCONDITION_TOL:
+            raise RuntimeError(
+                f"solution postcondition violated: max weight {w_max:.12f} "
+                f"exceeds cap {max_weight}"
+            )
+    if target_return is not None:
+        realized = float(w @ mu_vec)
+        tol = _POSTCONDITION_TOL * max(1.0, abs(target_return))
+        if abs(realized - target_return) > tol:
+            raise RuntimeError(
+                f"solution postcondition violated: realized return {realized:.12f} "
+                f"off target {target_return:.12f} (tolerance {tol:.1e})"
+            )
+
+
 def _budget_constraint() -> dict:
     return {"type": "eq", "fun": lambda w: w.sum() - 1.0, "jac": lambda w: np.ones_like(w)}
 
@@ -90,10 +206,19 @@ def min_variance(
     max_weight: float | None = None,
     target_return: float | None = None,
 ) -> np.ndarray:
-    """Minimum-variance portfolio, optionally at a target expected return."""
-    sigma = cov.to_numpy() * _OBJECTIVE_SCALE
-    m = mu.to_numpy()
+    """Minimum-variance portfolio, optionally at a target expected return.
+
+    Inputs are validated (labels, finiteness, PSD covariance, feasible
+    budget) and the finished solution is re-checked against EVERY constraint
+    after the defensive clip-and-renormalize; a materially invalid solution
+    raises instead of being returned.
+    """
+    sigma_full = _validate_market_inputs(mu, cov)
+    m = mu.to_numpy(dtype=float)
     n = len(mu)
+    _check_cap_budget(n, max_weight)
+
+    sigma = sigma_full * _OBJECTIVE_SCALE
 
     def obj(w: np.ndarray) -> float:
         return float(w @ sigma @ w)
@@ -124,7 +249,13 @@ def min_variance(
     if (w < -_SAFETY_NEG_TOL).any() or abs(float(w.sum()) - 1.0) > _SAFETY_SUM_TOL:
         _SOLVER_DIAGNOSTICS["min_variance_clip_renorm"] += 1
     w = np.clip(w, 0.0, None)
-    return w / w.sum()
+    w = w / w.sum()
+    # Postcondition: the FINAL vector must satisfy every constraint. This
+    # turns any hypothetical silent invalid return into a loud error.
+    _assert_solution_postconditions(
+        w, m, max_weight=max_weight, target_return=target_return
+    )
+    return w
 
 
 def max_sharpe(
@@ -151,8 +282,10 @@ def max_sharpe(
        min-variance solver: the Sharpe ratio along the frontier is unimodal in
        the target return, so a 25-point scan over ``[0, max achievable excess
        return]`` (the latter from the greedy cap-filling portfolio) is refined
-       by ternary search (40 iterations, interval tolerance 1e-7). The
-       returned weights are the frontier point with the highest Sharpe.
+       by ternary search (40 iterations, interval tolerance 1e-7). Each scan
+       target is an EXCESS return, mapped to the raw-return constraint as
+       ``rf_annual + target``. The returned weights are the frontier point
+       with the highest Sharpe.
 
     Raises
     ------
@@ -160,25 +293,36 @@ def max_sharpe(
         If no asset has positive excess return, or the maximum achievable
         cap-feasible excess return is non-positive (every risky portfolio is
         dominated by the risk-free asset).
+    ValueError
+        If the inputs are invalid (label mismatch, non-finite values,
+        non-PSD covariance) or the constraint set is infeasible
+        (``n_assets * max_weight < 1``).
     RuntimeError
         If the frontier scan fails entirely.
     """
-    sigma = cov.to_numpy()
-    excess = mu.to_numpy() - rf_annual
+    sigma = _validate_market_inputs(mu, cov)
+    m = mu.to_numpy(dtype=float)
+    excess = m - rf_annual
     n = len(mu)
+    _check_cap_budget(n, max_weight)
     if (excess <= 0).all():
         raise TangencyInfeasibleError(
             "no asset has positive excess return; the tangency portfolio is undefined"
         )
 
-    # 1) closed-form candidate: accept ONLY if feasible as-is (no clipping)
+    # 1) closed-form candidate: accept ONLY if feasible as-is (no clipping).
+    # The cap is checked on the NORMALIZED vector: the raw solution of
+    # Sigma^-1 (mu - rf) carries arbitrary units, and checking the cap before
+    # normalization both rejected feasible portfolios and accepted infeasible
+    # ones (whenever the raw sum < 1, normalization amplifies weights).
     try:
         w_cf = np.linalg.solve(sigma, excess)
         total = float(w_cf.sum())
-        cap_ok = max_weight is None or float(w_cf.max()) <= max_weight + 1e-12
-        if total > 0 and float(w_cf.min()) >= -1e-12 and cap_ok:
-            _SOLVER_DIAGNOSTICS["max_sharpe_closed_form"] += 1
-            return w_cf / total
+        if total > 0 and float(w_cf.min()) >= -1e-12:
+            w_norm = w_cf / total
+            if max_weight is None or float(w_norm.max()) <= max_weight + 1e-12:
+                _SOLVER_DIAGNOSTICS["max_sharpe_closed_form"] += 1
+                return w_norm
     except np.linalg.LinAlgError:
         pass  # singular covariance: fall through to the frontier scan
 
@@ -195,6 +339,11 @@ def max_sharpe(
         remaining -= take
         if remaining <= 1e-12:
             break
+    if remaining > 1e-9:
+        raise RuntimeError(
+            "cap-filling greedy allocation could not invest the full budget; "
+            "the constraint set is infeasible"
+        )
     max_excess = float(excess @ w_greedy)
     if max_excess <= 0:
         raise TangencyInfeasibleError(
@@ -203,8 +352,17 @@ def max_sharpe(
         )
 
     def sharpe_at(target: float) -> tuple[float, np.ndarray] | None:
+        """Sharpe of the frontier point whose EXCESS return equals ``target``.
+
+        The min-variance equality constraint lives in RAW return space, so the
+        excess-space target is mapped to ``rf_annual + target``; the previous
+        implementation passed the excess target directly, silently searching
+        the wrong return interval whenever rf != 0 and missing the tangency.
+        """
         try:
-            w = min_variance(mu, cov, max_weight=max_weight, target_return=target)
+            w = min_variance(
+                mu, cov, max_weight=max_weight, target_return=rf_annual + target
+            )
         except RuntimeError:
             return None
         vol = float(np.sqrt(max(w @ sigma @ w, 1e-18)))
@@ -261,13 +419,19 @@ def risk_parity(
     Raises
     ------
     RuntimeError
-        If the iteration fails to converge or, when a ``max_weight`` cap is
-        supplied, if the ERC solution violates it (the cap-feasible ERC
-        problem would need a different formulation, which we refuse to
-        silently approximate).
+        If the iteration fails to converge, if the solution does not reach
+        equal contributions, or, when a ``max_weight`` cap is supplied, if
+        the ERC solution violates it (the cap-feasible ERC problem would
+        need a different formulation, which we refuse to silently
+        approximate).
+    ValueError
+        If the covariance is invalid (non-finite, non-PSD, zero-variance
+        asset, label mismatch) or ``n_assets * max_weight < 1`` makes the
+        constraint set infeasible.
     """
-    sigma = cov.to_numpy()
+    sigma = _validate_market_inputs(None, cov)
     n = sigma.shape[0]
+    _check_cap_budget(n, max_weight)
     b = np.full(n, 1.0 / n)
     vol = np.sqrt(np.diag(sigma))
     w = (1.0 / vol) / (1.0 / vol).sum()  # canonical starting point

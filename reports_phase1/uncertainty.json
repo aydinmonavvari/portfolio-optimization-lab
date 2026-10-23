@@ -1,0 +1,413 @@
+{
+  "levels_and_ranks": {
+    "B": 2000,
+    "blocks": [
+      21,
+      63,
+      126
+    ],
+    "seed": 42,
+    "confidence_level": 0.95,
+    "statistic": "daily-convention Sharpe sqrt(252)*mean(r)/std(r, ddof=1) on OOS daily NET returns; circular-block bootstrap, percentile intervals; one fresh seed-42 stream per block length",
+    "point_estimates": {
+      "equal_weight": 1.135207,
+      "min_variance": 0.839832,
+      "max_sharpe": 1.059717,
+      "risk_parity": 1.107693
+    },
+    "levels": {
+      "equal_weight": {
+        "21": {
+          "ci_low": 0.4743,
+          "ci_high": 1.94549
+        },
+        "63": {
+          "ci_low": 0.553258,
+          "ci_high": 1.93286
+        },
+        "126": {
+          "ci_low": 0.627088,
+          "ci_high": 1.912658
+        }
+      },
+      "min_variance": {
+        "21": {
+          "ci_low": 0.177871,
+          "ci_high": 1.649282
+        },
+        "63": {
+          "ci_low": 0.272131,
+          "ci_high": 1.576627
+        },
+        "126": {
+          "ci_low": 0.394956,
+          "ci_high": 1.461645
+        }
+      },
+      "max_sharpe": {
+        "21": {
+          "ci_low": 0.473397,
+          "ci_high": 1.812249
+        },
+        "63": {
+          "ci_low": 0.527564,
+          "ci_high": 1.757646
+        },
+        "126": {
+          "ci_low": 0.624221,
+          "ci_high": 1.632961
+        }
+      },
+      "risk_parity": {
+        "21": {
+          "ci_low": 0.441965,
+          "ci_high": 1.94177
+        },
+        "63": {
+          "ci_low": 0.528981,
+          "ci_high": 1.912714
+        },
+        "126": {
+          "ci_low": 0.612525,
+          "ci_high": 1.875298
+        }
+      }
+    },
+    "rank_frequencies": {
+      "equal_weight": {
+        "1": 0.506,
+        "2": 0.316,
+        "3": 0.171,
+        "4": 0.007
+      },
+      "min_variance": {
+        "1": 0.0,
+        "2": 0.001,
+        "3": 0.056,
+        "4": 0.943
+      },
+      "max_sharpe": {
+        "1": 0.3295,
+        "2": 0.0845,
+        "3": 0.536,
+        "4": 0.05
+      },
+      "risk_parity": {
+        "1": 0.1645,
+        "2": 0.5985,
+        "3": 0.237,
+        "4": 0.0
+      }
+    },
+    "rank1_counts": {
+      "equal_weight": 1012,
+      "min_variance": 0,
+      "max_sharpe": 659,
+      "risk_parity": 329
+    }
+  },
+  "pairwise_holm": {
+    "B": 2000,
+    "block": 63,
+    "seed": 42,
+    "alpha": 0.05,
+    "method": "paired circular-block bootstrap per pair (fresh seed-42 stream per pair, identical to the v1.0.0 engine); two-sided add-one bootstrap p-values; Holm step-down across the 6-pair family (FWER 0.05)",
+    "family_size": 6,
+    "n_reject_holm_05": 0,
+    "pairs": [
+      {
+        "a": "equal_weight",
+        "b": "min_variance",
+        "diff": 0.295375,
+        "ci_low": -0.02506,
+        "ci_high": 0.63655,
+        "significant_95_unadjusted": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.05233,
+            "ci_high": 0.653429
+          },
+          "126": {
+            "ci_low": 0.045497,
+            "ci_high": 0.632344
+          }
+        },
+        "p_value_add_one": 0.072964,
+        "p_holm_adjusted": 0.364818,
+        "reject_holm_05": false
+      },
+      {
+        "a": "equal_weight",
+        "b": "max_sharpe",
+        "diff": 0.07549,
+        "ci_low": -0.271046,
+        "ci_high": 0.524833,
+        "significant_95_unadjusted": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.269392,
+            "ci_high": 0.46862
+          },
+          "126": {
+            "ci_low": -0.244182,
+            "ci_high": 0.560908
+          }
+        },
+        "p_value_add_one": 0.685657,
+        "p_holm_adjusted": 1.0,
+        "reject_holm_05": false
+      },
+      {
+        "a": "equal_weight",
+        "b": "risk_parity",
+        "diff": 0.027514,
+        "ci_low": -0.101489,
+        "ci_high": 0.137859,
+        "significant_95_unadjusted": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.105772,
+            "ci_high": 0.146201
+          },
+          "126": {
+            "ci_low": -0.074134,
+            "ci_high": 0.119552
+          }
+        },
+        "p_value_add_one": 0.686657,
+        "p_holm_adjusted": 1.0,
+        "reject_holm_05": false
+      },
+      {
+        "a": "min_variance",
+        "b": "max_sharpe",
+        "diff": -0.219885,
+        "ci_low": -0.499456,
+        "ci_high": 0.080441,
+        "significant_95_unadjusted": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.555514,
+            "ci_high": 0.149492
+          },
+          "126": {
+            "ci_low": -0.455051,
+            "ci_high": 0.056581
+          }
+        },
+        "p_value_add_one": 0.142929,
+        "p_holm_adjusted": 0.571714,
+        "reject_holm_05": false
+      },
+      {
+        "a": "min_variance",
+        "b": "risk_parity",
+        "diff": -0.267861,
+        "ci_low": -0.520948,
+        "ci_high": -0.063048,
+        "significant_95_unadjusted": true,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.527309,
+            "ci_high": -0.034669
+          },
+          "126": {
+            "ci_low": -0.534834,
+            "ci_high": -0.096593
+          }
+        },
+        "p_value_add_one": 0.011994,
+        "p_holm_adjusted": 0.071964,
+        "reject_holm_05": false
+      },
+      {
+        "a": "max_sharpe",
+        "b": "risk_parity",
+        "diff": -0.047976,
+        "ci_low": -0.448517,
+        "ci_high": 0.23384,
+        "significant_95_unadjusted": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.404527,
+            "ci_high": 0.264458
+          },
+          "126": {
+            "ci_low": -0.484339,
+            "ci_high": 0.237102
+          }
+        },
+        "p_value_add_one": 0.761619,
+        "p_holm_adjusted": 1.0,
+        "reject_holm_05": false
+      }
+    ]
+  },
+  "subwindow_stability": {
+    "n_windows": 7,
+    "window_days": 252,
+    "statistic": "daily-convention Sharpe per 252-day contiguous sub-window",
+    "window_sharpes_daily": [
+      {
+        "equal_weight": 2.7399792273958563,
+        "min_variance": 2.4879907730247064,
+        "max_sharpe": 2.8006833817410537,
+        "risk_parity": 2.768862083876944
+      },
+      {
+        "equal_weight": 0.7682280803900547,
+        "min_variance": 0.5912819793518459,
+        "max_sharpe": 0.9752898123010114,
+        "risk_parity": 0.7490028000731237
+      },
+      {
+        "equal_weight": 2.4120576241277454,
+        "min_variance": 1.6350749385529413,
+        "max_sharpe": 1.222113161710267,
+        "risk_parity": 2.398692596780936
+      },
+      {
+        "equal_weight": -0.3561687114721339,
+        "min_variance": 0.027539784503228477,
+        "max_sharpe": 0.22680499402729729,
+        "risk_parity": -0.17930429874233886
+      },
+      {
+        "equal_weight": 1.9940976220921853,
+        "min_variance": 0.08582862725528694,
+        "max_sharpe": 0.49332858113506317,
+        "risk_parity": 1.450771730873274
+      },
+      {
+        "equal_weight": 2.1116424871198376,
+        "min_variance": 1.524282721271611,
+        "max_sharpe": 1.8183312800345623,
+        "risk_parity": 1.948422080274855
+      },
+      {
+        "equal_weight": 1.169413329522434,
+        "min_variance": 1.2023943664347974,
+        "max_sharpe": 1.1096211787980061,
+        "risk_parity": 1.2551535363857145
+      }
+    ],
+    "window_sharpes_geometric": [
+      {
+        "equal_weight": 3.20949170426562,
+        "min_variance": 2.8040975437420754,
+        "max_sharpe": 3.3405618785092717,
+        "risk_parity": 3.2104566363670166
+      },
+      {
+        "equal_weight": 0.664063715274809,
+        "min_variance": 0.4614908472404029,
+        "max_sharpe": 0.9072802457732831,
+        "risk_parity": 0.6437910548625548
+      },
+      {
+        "equal_weight": 2.7267118227282636,
+        "min_variance": 1.7253715594793984,
+        "max_sharpe": 1.2535360488576217,
+        "risk_parity": 2.6851311506044295
+      },
+      {
+        "equal_weight": -0.4464693297553841,
+        "min_variance": -0.060280366940571206,
+        "max_sharpe": 0.12707748352156678,
+        "risk_parity": -0.2727199569552061
+      },
+      {
+        "equal_weight": 2.183328503732081,
+        "min_variance": 0.02744443322312663,
+        "max_sharpe": 0.43969464208853654,
+        "risk_parity": 1.5090356555654947
+      },
+      {
+        "equal_weight": 2.2946253498276903,
+        "min_variance": 1.5812531104424552,
+        "max_sharpe": 1.9728730898890476,
+        "risk_parity": 2.080857260810845
+      },
+      {
+        "equal_weight": 1.1905097429903808,
+        "min_variance": 1.2260903962556247,
+        "max_sharpe": 1.1196304781932884,
+        "risk_parity": 1.289824830586044
+      }
+    ],
+    "adjacent_kendall_tau": [
+      0.666667,
+      0.0,
+      -1.0,
+      -0.666667,
+      1.0,
+      0.0
+    ],
+    "mean_adjacent_kendall_tau": 0.0,
+    "rank1_counts": {
+      "equal_weight": 3,
+      "min_variance": 0,
+      "max_sharpe": 3,
+      "risk_parity": 1
+    }
+  },
+  "half_split_exploratory": {
+    "label": "EXPLORATORY",
+    "disclosure": "chronological fragility check only; no regime definition, no regime-robustness claim is made from this output",
+    "half1_days": 945,
+    "half2_days": 945,
+    "B": 2000,
+    "block": 63,
+    "seed": 42,
+    "per_strategy": {
+      "equal_weight": {
+        "half1": {
+          "sharpe": 0.990963,
+          "ci_low": 0.252409,
+          "ci_high": 2.091669
+        },
+        "half2": {
+          "sharpe": 1.444556,
+          "ci_low": 0.718081,
+          "ci_high": 2.350661
+        }
+      },
+      "min_variance": {
+        "half1": {
+          "sharpe": 0.718912,
+          "ci_low": -0.005619,
+          "ci_high": 1.789833
+        },
+        "half2": {
+          "sharpe": 1.129539,
+          "ci_low": 0.375116,
+          "ci_high": 1.96914
+        }
+      },
+      "max_sharpe": {
+        "half1": {
+          "sharpe": 1.005243,
+          "ci_low": 0.3617,
+          "ci_high": 1.950811
+        },
+        "half2": {
+          "sharpe": 1.248475,
+          "ci_low": 0.434794,
+          "ci_high": 2.242339
+        }
+      },
+      "risk_parity": {
+        "half1": {
+          "sharpe": 0.969296,
+          "ci_low": 0.225012,
+          "ci_high": 2.089723
+        },
+        "half2": {
+          "sharpe": 1.446867,
+          "ci_low": 0.743717,
+          "ci_high": 2.277948
+        }
+      }
+    }
+  }
+}
