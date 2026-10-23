@@ -43,7 +43,7 @@ measures what the optimizers actually deliver.
 
 ## 5 · Methodology
 
-1. **Estimation** — from daily log returns: annualized mean vector, sample covariance,
+1. **Estimation** — from daily simple returns: annualized mean vector, sample covariance,
    and Ledoit–Wolf (2004) shrunk covariance (the shrinkage intensity is fitted on the
    data and reported).
 2. **Portfolio construction** — all portfolios solved under long-only, full-investment
@@ -66,10 +66,11 @@ measures what the optimizers actually deliver.
    by a dedicated unit test that intercepts the estimator and asserts window
    boundaries). The trailing partial 63-day block (61 trading days here) is not used
    out of sample.
-5. **Costs** — 10 bps applied to one-way turnover at each rebalance and **deducted
-   from that day's strategy return**; every headline metric (return, volatility,
-   Sharpe, drawdowns, cumulative growth) is therefore net of costs, with gross
-   metrics reported alongside for reference.
+5. **Costs** — 10 bps applied to ONE-WAY turnover at each rebalance (total buys as a
+   fraction of portfolio value, `Σ max(Δw, 0)`; the initial build from cash contributes
+   1.0) and **deducted from that day's strategy return**; every headline metric
+   (return, volatility, Sharpe, drawdowns, cumulative growth) is therefore net of
+   costs, with gross metrics reported alongside for reference.
 6. **Uncertainty** — paired circular-block bootstrap (Politis & Romano 1994) 95%
    percentile CIs for every pairwise Sharpe *difference* on OOS daily net returns:
    B = 2000, block = 63 days (the holding period), seed 42, with block-length
@@ -97,7 +98,7 @@ measures what the optimizers actually deliver.
 | Universe | AAPL, MSFT, JNJ, JPM, XOM, PG, AMZN (benchmark: SPY for context) |
 | Source | Yahoo Finance daily adjusted closes via `yfinance`, cached CSVs |
 | Window | 2018-01-02 → 2026-10-07 (2,203 aligned trading days) |
-| Returns | Daily log returns, annualized with a 252-day convention |
+| Returns | Daily simple returns, annualized with a 252-day convention |
 
 ## 7 · Data sources
 
@@ -107,7 +108,7 @@ Yahoo Finance (`yfinance`) — delayed adjusted bars; cached locally under `data
 ## 8 · Architecture
 
 ```
-cached adjusted closes ──► validation ──► daily log returns
+cached adjusted closes ──► validation ──► daily simple returns
                                 │
               estimate (trailing 252d only): mu, Σ_sample, Σ_LW
                                 │
@@ -135,7 +136,7 @@ charged AND deducted on realized turnover, not ignored. The trailing partial 63-
 holding block is excluded from the OOS sample rather than partially evaluated.
 
 **Known limitations of the design** (stated up front): seven assets, one period, one
-cost model; μ estimated as annualized mean log returns (no Black–Litterman or
+cost model; μ estimated as annualized mean simple returns (no Black–Litterman or
 shrinkage on the mean vector — a deliberate scope choice discussed in §14).
 
 ## 10 · Models
@@ -170,8 +171,20 @@ window itself is controlled by `scripts/download_data.py`.
 ## 12 · Results
 
 Actual outputs of the committed run (`reports/`, `figures/`). All OOS numbers are
-net of transaction costs (10 bps on one-way turnover, deducted from each
+net of transaction costs (10 bps per unit of turnover, deducted from each
 rebalance-day return); gross figures are shown for reference.
+
+> **Provenance note (Phase 1, branch `fix/numerical-rigor`).** The numbers in this
+> section were produced by the v1.1.0 engine, which (i) fed daily LOG returns
+> through a linear portfolio algebra, (ii) annualized by summing those daily
+> figures and exponentiating, and (iii) computed turnover as `Σ|Δw|` (both
+> sides) while labeling it one-way. The corrected engine consumes simple
+> returns, annualizes via `Σ log1p(r)`, and charges the registered ONE-WAY
+> turnover `Σ max(Δw, 0)` — so turnover and cost figures roughly halve and
+> Sharpe ratios shift (e.g. equal-weight OOS net 1.005 → 1.150). These artifacts
+> will be regenerated in the next release; until then every v1.1.0 number below
+> should be read under the v1.1.0 convention. The registered conclusions are
+> unchanged: 0 of 6 pairwise gaps survive Holm correction under both engines.
 
 **In-sample vs out-of-sample Sharpe (30 quarterly rebalances, 1,890 OOS days):**
 
@@ -324,12 +337,13 @@ plus the Phase-2 figures [`sharpe_level_cis.png`](figures/sharpe_level_cis.png),
    sample; the honest statement is about its cost/turnover profile and mean
    independence, not a significance ranking.
 5. **Costs matter at rebalancing frequency — now measurably.** Max-Sharpe's 0.619
-   average one-way turnover per quarter costs 1.86% cumulatively (≈0.30%/yr including
-   lost compounding), versus 0.10% for equal weight. That drag is the difference
-   between gross 0.971 and net 0.957 — material relative to the (Holm-insignificant)
-   gaps between strategies, and visible across the whole cost grid: max Sharpe's
-   net Sharpe falls ≈0.12 from 0 to 100 bps while equal weight loses ≈0.006, with
-   no ordering change anywhere on the grid.
+   average turnover per quarter (v1.1.0 engine: `Σ|Δw|`, both sides; the corrected
+   engine reports the one-way equivalent ≈ 0.31) costs 1.86% cumulatively
+   (≈0.30%/yr including lost compounding), versus 0.10% for equal weight. That drag
+   is the difference between gross 0.971 and net 0.957 — material relative to the
+   (Holm-insignificant) gaps between strategies, and visible across the whole cost
+   grid: max Sharpe's net Sharpe falls ≈0.12 from 0 to 100 bps while equal weight
+   loses ≈0.006, with no ordering change anywhere on the grid.
 6. **Statistical significance, economic significance, and uncertainty are
    reported separately.** No pairwise claim survives multiplicity correction; the
    level CIs are as wide as the quoted gaps; the placebo shows a by-construction

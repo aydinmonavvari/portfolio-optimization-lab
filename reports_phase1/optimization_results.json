@@ -1,0 +1,458 @@
+{
+  "generated_at": "2026-10-23T19:23:47.936201+00:00",
+  "project": "portfolio-optimization-lab",
+  "description": "Mean-variance and risk-parity optimization with shrinkage covariance and a leakage-free walk-forward evaluation, net of transaction costs (educational research project; not investment advice).",
+  "config": {
+    "tickers": [
+      "AAPL",
+      "MSFT",
+      "JNJ",
+      "JPM",
+      "XOM",
+      "PG",
+      "AMZN"
+    ],
+    "benchmark": "SPY",
+    "rf_annual": 0.0,
+    "periods_per_year": 252,
+    "estimation_window": 252,
+    "holding_period": 63,
+    "max_weight": 0.4,
+    "cost_bps": 10.0,
+    "frontier_points": 30,
+    "seed": 42,
+    "raw_dir": "data/raw",
+    "processed_dir": "data/processed",
+    "figures_dir": "figures_phase1",
+    "reports_dir": "reports_phase1"
+  },
+  "frontier": [
+    {
+      "target_return": 0.102771,
+      "volatility": null
+    },
+    {
+      "target_return": 0.10921,
+      "volatility": null
+    },
+    {
+      "target_return": 0.115648,
+      "volatility": null
+    },
+    {
+      "target_return": 0.122086,
+      "volatility": 0.163653
+    },
+    {
+      "target_return": 0.128524,
+      "volatility": 0.159412
+    },
+    {
+      "target_return": 0.134962,
+      "volatility": 0.15839
+    },
+    {
+      "target_return": 0.1414,
+      "volatility": 0.15832
+    },
+    {
+      "target_return": 0.147838,
+      "volatility": 0.159004
+    },
+    {
+      "target_return": 0.154276,
+      "volatility": 0.160264
+    },
+    {
+      "target_return": 0.160714,
+      "volatility": 0.162083
+    },
+    {
+      "target_return": 0.167153,
+      "volatility": 0.164445
+    },
+    {
+      "target_return": 0.173591,
+      "volatility": 0.167325
+    },
+    {
+      "target_return": 0.180029,
+      "volatility": 0.170697
+    },
+    {
+      "target_return": 0.186467,
+      "volatility": 0.174534
+    },
+    {
+      "target_return": 0.192905,
+      "volatility": 0.178804
+    },
+    {
+      "target_return": 0.199343,
+      "volatility": 0.183478
+    },
+    {
+      "target_return": 0.205781,
+      "volatility": 0.188526
+    },
+    {
+      "target_return": 0.212219,
+      "volatility": 0.193918
+    },
+    {
+      "target_return": 0.218657,
+      "volatility": 0.199627
+    },
+    {
+      "target_return": 0.225095,
+      "volatility": 0.205651
+    },
+    {
+      "target_return": 0.231534,
+      "volatility": 0.212061
+    },
+    {
+      "target_return": 0.237972,
+      "volatility": 0.218849
+    },
+    {
+      "target_return": 0.24441,
+      "volatility": 0.226021
+    },
+    {
+      "target_return": 0.250848,
+      "volatility": 0.233733
+    },
+    {
+      "target_return": 0.257286,
+      "volatility": 0.242147
+    },
+    {
+      "target_return": 0.263724,
+      "volatility": 0.257325
+    },
+    {
+      "target_return": 0.270162,
+      "volatility": null
+    },
+    {
+      "target_return": 0.2766,
+      "volatility": null
+    },
+    {
+      "target_return": 0.283038,
+      "volatility": null
+    },
+    {
+      "target_return": 0.289477,
+      "volatility": null
+    }
+  ],
+  "asset_stats": {
+    "AAPL": {
+      "return": 0.289477,
+      "volatility": 0.30388,
+      "sharpe": 0.952602
+    },
+    "MSFT": {
+      "return": 0.260671,
+      "volatility": 0.290543,
+      "sharpe": 0.897187
+    },
+    "JNJ": {
+      "return": 0.117503,
+      "volatility": 0.197775,
+      "sharpe": 0.594127
+    },
+    "JPM": {
+      "return": 0.195574,
+      "volatility": 0.285017,
+      "sharpe": 0.686184
+    },
+    "XOM": {
+      "return": 0.164319,
+      "volatility": 0.299308,
+      "sharpe": 0.548995
+    },
+    "PG": {
+      "return": 0.102771,
+      "volatility": 0.20167,
+      "sharpe": 0.509602
+    },
+    "AMZN": {
+      "return": 0.22796,
+      "volatility": 0.343297,
+      "sharpe": 0.664031
+    }
+  },
+  "portfolios": {
+    "equal weight": {
+      "return": 0.194039,
+      "volatility": 0.183629,
+      "sharpe": 1.056692
+    },
+    "min variance": {
+      "return": 0.138698,
+      "volatility": 0.158244,
+      "sharpe": 0.876482
+    },
+    "max sharpe": {
+      "return": 0.21909,
+      "volatility": 0.200021,
+      "sharpe": 1.095332
+    },
+    "risk parity": {
+      "return": 0.178835,
+      "volatility": 0.171998,
+      "sharpe": 1.03975
+    }
+  },
+  "weights_full_sample": {
+    "equal_weight": {
+      "AAPL": 0.142857,
+      "MSFT": 0.142857,
+      "JNJ": 0.142857,
+      "JPM": 0.142857,
+      "XOM": 0.142857,
+      "PG": 0.142857,
+      "AMZN": 0.142857
+    },
+    "min_variance": {
+      "AAPL": 0.0,
+      "MSFT": 0.042092,
+      "JNJ": 0.356027,
+      "JPM": 0.034789,
+      "XOM": 0.129987,
+      "PG": 0.33481,
+      "AMZN": 0.102294
+    },
+    "max_sharpe": {
+      "AAPL": 0.301249,
+      "MSFT": 0.251721,
+      "JNJ": 0.222795,
+      "JPM": 0.08718,
+      "XOM": 0.112264,
+      "PG": 0.008459,
+      "AMZN": 0.01633
+    },
+    "risk_parity": {
+      "AAPL": 0.109375,
+      "MSFT": 0.115751,
+      "JNJ": 0.200668,
+      "JPM": 0.123538,
+      "XOM": 0.141051,
+      "PG": 0.195679,
+      "AMZN": 0.113938
+    }
+  },
+  "shrinkage_intensity_full_sample": 0.015246,
+  "shrinkage_intensity_walk_forward": {
+    "mean": 0.074399,
+    "min": 0.031172,
+    "max": 0.169416,
+    "n_windows": 30
+  },
+  "solver_diagnostics": {
+    "min_variance_clip_renorm": 0,
+    "max_sharpe_closed_form": 2,
+    "max_sharpe_frontier_scan": 210
+  },
+  "performance": [
+    {
+      "strategy": "equal_weight",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.213519,
+      "ann_volatility": 0.185743,
+      "sharpe": 1.149539,
+      "ann_return_gross": 0.213675,
+      "sharpe_gross": 1.150228,
+      "avg_turnover": 0.033333,
+      "total_costs_pct": 0.1
+    },
+    {
+      "strategy": "min_variance",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.134007,
+      "ann_volatility": 0.166209,
+      "sharpe": 0.806258,
+      "ann_return_gross": 0.134571,
+      "sharpe_gross": 0.809461,
+      "avg_turnover": 0.125867,
+      "total_costs_pct": 0.377601
+    },
+    {
+      "strategy": "max_sharpe",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.222141,
+      "ann_volatility": 0.210184,
+      "sharpe": 1.056892,
+      "ann_return_gross": 0.223705,
+      "sharpe_gross": 1.064067,
+      "avg_turnover": 0.322582,
+      "total_costs_pct": 0.967745
+    },
+    {
+      "strategy": "risk_parity",
+      "oos_days": 1890,
+      "n_rebalances": 30,
+      "ann_return": 0.194025,
+      "ann_volatility": 0.173779,
+      "sharpe": 1.1165,
+      "ann_return_gross": 0.19431,
+      "sharpe_gross": 1.117959,
+      "avg_turnover": 0.061027,
+      "total_costs_pct": 0.183081
+    }
+  ],
+  "comparison": [
+    {
+      "strategy": "equal_weight",
+      "in_sample_sharpe": 1.056692,
+      "oos_sharpe_net": 1.149539,
+      "oos_sharpe_gross": 1.150228,
+      "sharpe_degradation": 0.092847
+    },
+    {
+      "strategy": "min_variance",
+      "in_sample_sharpe": 0.876482,
+      "oos_sharpe_net": 0.806258,
+      "oos_sharpe_gross": 0.809461,
+      "sharpe_degradation": -0.070224
+    },
+    {
+      "strategy": "max_sharpe",
+      "in_sample_sharpe": 1.095332,
+      "oos_sharpe_net": 1.056892,
+      "oos_sharpe_gross": 1.064067,
+      "sharpe_degradation": -0.03844
+    },
+    {
+      "strategy": "risk_parity",
+      "in_sample_sharpe": 1.03975,
+      "oos_sharpe_net": 1.1165,
+      "oos_sharpe_gross": 1.117959,
+      "sharpe_degradation": 0.07675
+    }
+  ],
+  "sharpe_diff_bootstrap": {
+    "B": 2000,
+    "block": 63,
+    "seed": 42,
+    "confidence_level": 0.95,
+    "statistic": "paired circular-block bootstrap of Sharpe(a) - Sharpe(b) on OOS daily net returns; Sharpe = sqrt(periods_per_year) * mean(r) / std(r, ddof=1); identical resampled indices for both legs",
+    "assumptions": "approximately stationary OOS return series; within-block dependence captures the serial correlation; conclusions read across the sensitivity block lengths",
+    "pairs": [
+      {
+        "a": "equal_weight",
+        "b": "min_variance",
+        "diff": 0.295375,
+        "ci_low": -0.02506,
+        "ci_high": 0.63655,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.05233,
+            "ci_high": 0.653429
+          },
+          "126": {
+            "ci_low": 0.045497,
+            "ci_high": 0.632344
+          }
+        }
+      },
+      {
+        "a": "equal_weight",
+        "b": "max_sharpe",
+        "diff": 0.07549,
+        "ci_low": -0.271046,
+        "ci_high": 0.524833,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.269392,
+            "ci_high": 0.46862
+          },
+          "126": {
+            "ci_low": -0.244182,
+            "ci_high": 0.560908
+          }
+        }
+      },
+      {
+        "a": "equal_weight",
+        "b": "risk_parity",
+        "diff": 0.027514,
+        "ci_low": -0.101489,
+        "ci_high": 0.137859,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.105772,
+            "ci_high": 0.146201
+          },
+          "126": {
+            "ci_low": -0.074134,
+            "ci_high": 0.119552
+          }
+        }
+      },
+      {
+        "a": "min_variance",
+        "b": "max_sharpe",
+        "diff": -0.219885,
+        "ci_low": -0.499456,
+        "ci_high": 0.080441,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.555514,
+            "ci_high": 0.149492
+          },
+          "126": {
+            "ci_low": -0.455051,
+            "ci_high": 0.056581
+          }
+        }
+      },
+      {
+        "a": "min_variance",
+        "b": "risk_parity",
+        "diff": -0.267861,
+        "ci_low": -0.520948,
+        "ci_high": -0.063048,
+        "significant_95": true,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.527309,
+            "ci_high": -0.034669
+          },
+          "126": {
+            "ci_low": -0.534834,
+            "ci_high": -0.096593
+          }
+        }
+      },
+      {
+        "a": "max_sharpe",
+        "b": "risk_parity",
+        "diff": -0.047976,
+        "ci_low": -0.448517,
+        "ci_high": 0.23384,
+        "significant_95": false,
+        "sensitivity": {
+          "21": {
+            "ci_low": -0.404527,
+            "ci_high": 0.264458
+          },
+          "126": {
+            "ci_low": -0.484339,
+            "ci_high": 0.237102
+          }
+        }
+      }
+    ]
+  }
+}

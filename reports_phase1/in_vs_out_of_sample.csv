@@ -1,0 +1,5 @@
+strategy,in_sample_sharpe,oos_sharpe_net,oos_sharpe_gross,sharpe_degradation
+equal_weight,1.056692,1.149539,1.150228,0.092847
+min_variance,0.876482,0.806258,0.809461,-0.070224
+max_sharpe,1.095332,1.056892,1.064067,-0.03844
+risk_parity,1.03975,1.1165,1.117959,0.07675
